@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"syscall"
 
 	"github.com/landlock-lsm/go-landlock/landlock"
 )
@@ -14,11 +15,15 @@ import (
 func runInSandbox(config *SandboxConfig) error {
 	// If allow-all is set, run without restrictions
 	if config.AllowAll {
-		cmd := exec.Command(config.Command, config.Args...)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		// Find the absolute path of the command
+		path, err := exec.LookPath(config.Command)
+		if err != nil {
+			return fmt.Errorf("command not found: %w", err)
+		}
+
+		// Prepare argv: command + args
+		argv := append([]string{config.Command}, config.Args...)
+		return syscall.Exec(path, argv, os.Environ())
 	}
 
 	// Build FSRules
@@ -27,6 +32,10 @@ func runInSandbox(config *SandboxConfig) error {
 	// Grant read and execute access to the entire filesystem by default
 	// This allows all file reads and command executions
 	rules = append(rules, landlock.RODirs("/"))
+
+	// Grant write access to /dev/null by default
+	// Many programs write to /dev/null for discarding output
+	rules = append(rules, landlock.RWFiles("/dev/null"))
 
 	// Grant read-write access to specified paths
 	for _, path := range config.AllowedPaths {
@@ -40,15 +49,16 @@ func runInSandbox(config *SandboxConfig) error {
 		return fmt.Errorf("failed to apply Landlock restrictions: %w", err)
 	}
 
-	// Run the command with restrictions applied
-	cmd := exec.Command(config.Command, config.Args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command execution failed: %w", err)
+	// Find the absolute path of the command
+	path, err := exec.LookPath(config.Command)
+	if err != nil {
+		return fmt.Errorf("command not found: %w", err)
 	}
 
-	return nil
+	// Execute the command with restrictions applied
+	// syscall.Exec replaces the current process
+	argv := append([]string{config.Command}, config.Args...)
+	err = syscall.Exec(path, argv, os.Environ())
+	// If we reach here, exec failed
+	return fmt.Errorf("syscall.Exec failed: %w", err)
 }
