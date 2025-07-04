@@ -14,8 +14,8 @@ Cage provides a unified way to run potentially untrusted commands or scripts wit
 
 - **Write-only restriction**: Commands can read any file but cannot write unless explicitly allowed
 - **Cross-platform**: Works on Linux (kernel 5.13+) and macOS
-- **Flexible permissions**: Grant write access to specific paths via `--allow` flags
-- **Debug mode**: Disable all restrictions with `--allow-all`
+- **Flexible permissions**: Grant write access to specific paths via `-allow` flags
+- **Debug mode**: Disable all restrictions with `-allow-all`
 - **Transparent execution**: Uses `syscall.Exec` to replace the process, preventing sandbox bypass
 
 ## Installation
@@ -42,19 +42,19 @@ cage [flags] <command> [args...]
 
 ### Flags
 
-- `--allow <path>`: Grant write access to a specific path (can be used multiple times)
-- `--allow-all`: Disable all restrictions (useful for debugging)
+- `-allow <path>`: Grant write access to a specific path (can be used multiple times)
+- `-allow-all`: Disable all restrictions (useful for debugging)
 
 ### Examples
 
 #### Run a script with temporary directory access
 ```bash
-cage --allow /tmp python analyze.py input.txt
+cage -allow /tmp python analyze.py input.txt
 ```
 
 #### Build a project with restricted output directories
 ```bash
-cage --allow ./build --allow ./dist -- npm run build
+cage -allow ./build -allow ./dist -- npm run build
 ```
 
 #### Analyze untrusted scripts safely
@@ -64,12 +64,12 @@ cage python suspicious_script.py
 
 #### Process data with controlled output
 ```bash
-cage --allow ./output -- ./process_data.sh /sensitive/data
+cage -allow ./output -- ./process_data.sh /sensitive/data
 ```
 
 #### Debug mode (no restrictions)
 ```bash
-cage --allow-all -- make install
+cage -allow-all -- make install
 ```
 
 ## Platform Implementation
@@ -92,7 +92,7 @@ cage --allow-all -- make install
 
 Cage enforces the following security policy by default:
 
-| Operation | Default Policy | With `--allow` |
+| Operation | Default Policy | With `-allow` |
 |-----------|---------------|----------------|
 | File Read | ✅ Allowed | ✅ Allowed |
 | File Write | ❌ Denied | ✅ Allowed for specified paths |
@@ -124,30 +124,30 @@ nix develop
 ### 1. Development Workflows
 Restrict build outputs to specific directories:
 ```bash
-cage --allow ./build --allow ./node_modules -- npm install
-cage --allow ./dist -- npm run build
+cage -allow ./build -allow ./node_modules -- npm install
+cage -allow ./dist -- npm run build
 ```
 
 ### 2. Security Testing
 Safely analyze potentially malicious scripts:
 ```bash
 cage python malware_sample.py
-cage --allow /tmp/analysis -- ./suspicious_binary
+cage -allow /tmp/analysis -- ./suspicious_binary
 ```
 
 ### 3. Data Processing
 Process sensitive data with controlled output locations:
 ```bash
-cage --allow ./reports -- python generate_report.py /confidential/data.csv
+cage -allow ./reports -- python generate_report.py /confidential/data.csv
 ```
 
 ### 4. LLM Code Agents
 ```bash
 cage \
-  --allow . \                                   # Allow current directory
-  --allow /tmp \                                # Allow temporary directory
-  --allow "$CLAUDE_CONFIG_DIR" \                # Allow Claude config directory
-  --allow "$(git rev-parse --git-common-dir)" \ # Allow git common directory
+  -allow . \                                   # Allow current directory
+  -allow /tmp \                                # Allow temporary directory
+  -allow "$CLAUDE_CONFIG_DIR" \                # Allow Claude config directory
+  -allow "$(git rev-parse --git-common-dir)" \ # Allow git common directory
   claude --dangerously-skip-permissions
 ```
 
