@@ -9,37 +9,41 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // runInSandbox implements sandbox execution for macOS using sandbox-exec
 func runInSandbox(config *SandboxConfig) error {
 	// If allow-all is set, run without restrictions
 	if config.AllowAll {
-		cmd := exec.Command(config.Command, config.Args...)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		// Find the absolute path of the command
+		path, err := exec.LookPath(config.Command)
+		if err != nil {
+			return fmt.Errorf("command not found: %w", err)
+		}
+
+		// Prepare arguments: first arg is the program name
+		args := append([]string{config.Command}, config.Args...)
+
+		// Replace current process with the command
+		return syscall.Exec(path, args, os.Environ())
 	}
 
 	// Generate sandbox profile
 	profile := generateSandboxProfile(config.AllowedPaths)
 
-	// Prepare sandbox-exec command
-	args := []string{"-p", profile, config.Command}
-	args = append(args, config.Args...)
-
-	cmd := exec.Command("sandbox-exec", args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// Run the command
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("sandbox execution failed: %w", err)
+	// Find sandbox-exec executable
+	sandboxPath, err := exec.LookPath("sandbox-exec")
+	if err != nil {
+		return fmt.Errorf("sandbox-exec not found: %w", err)
 	}
 
-	return nil
+	// Prepare sandbox-exec command
+	args := []string{"sandbox-exec", "-p", profile, config.Command}
+	args = append(args, config.Args...)
+
+	// Replace current process with sandbox-exec
+	return syscall.Exec(sandboxPath, args, os.Environ())
 }
 
 // generateSandboxProfile creates a sandbox-exec profile with write restrictions
