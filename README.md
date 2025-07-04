@@ -146,6 +146,7 @@ cage -allow ./reports -- python generate_report.py /confidential/data.csv
 cage \
   -allow . \                                   # Allow current directory
   -allow /tmp \                                # Allow temporary directory
+  -allow $HOME/.npm \                          # Allow npm directory for MCP server executed via npx command
   -allow "$CLAUDE_CONFIG_DIR" \                # Allow Claude config directory
   -allow "$(git rev-parse --git-common-dir)" \ # Allow git common directory
   claude --dangerously-skip-permissions
