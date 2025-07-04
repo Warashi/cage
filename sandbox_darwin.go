@@ -48,13 +48,9 @@ func generateSandboxProfile(allowedPaths []string) string {
 
 	// Write profile header
 	profile.WriteString("(version 1)\n")
-	profile.WriteString("(import \"system.sb\")\n")
-	profile.WriteString("(deny default)\n")
+	profile.WriteString("(allow default)\n")
 
-	// Allow all file reads
-	profile.WriteString("(allow file-read*)\n")
-
-	// Deny all file writes by default
+	// Deny writes to all paths except allowed ones
 	profile.WriteString("(deny file-write*)\n")
 
 	// Allow writes to specified paths
@@ -82,28 +78,6 @@ func generateSandboxProfile(allowedPaths []string) string {
 		// Also allow writes to the literal path (for directory creation)
 		profile.WriteString(fmt.Sprintf("(allow file-write* (literal \"%s\"))\n", escapedPath))
 	}
-
-	// Allow network access
-	profile.WriteString("(allow network*)\n")
-
-	// Allow process execution
-	profile.WriteString("(allow process-exec*)\n")
-	profile.WriteString("(allow process-fork)\n")
-
-	// Allow IPC and other system operations
-	profile.WriteString("(allow ipc-posix*)\n")
-	profile.WriteString("(allow mach*)\n")
-	profile.WriteString("(allow sysctl-read)\n")
-	profile.WriteString("(allow system-socket)\n")
-
-	// Allow signal operations
-	profile.WriteString("(allow signal)\n")
-
-	// Allow various file operations that don't modify content
-	profile.WriteString("(allow file-read-metadata)\n")
-	profile.WriteString("(allow file-read-xattr)\n")
-	profile.WriteString("(allow file-write-xattr)\n")
-	profile.WriteString("(allow file-ioctl)\n")
 
 	return profile.String()
 }
