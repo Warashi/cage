@@ -24,27 +24,9 @@ func runInSandbox(config *SandboxConfig) error {
 	// Build FSRules
 	var rules []landlock.Rule
 
-	// Grant read access to essential system directories for command execution
-	// We check if each directory exists before adding it
-	systemDirs := []string{
-		"/bin",      // System binaries
-		"/usr",      // User binaries and libraries
-		"/lib",      // System libraries
-		"/lib64",    // 64-bit system libraries (may not exist on all systems)
-		"/etc",      // Configuration files
-		"/dev",      // Device files
-		"/proc",     // Process information
-		"/sys",      // System information
-		"/nix",      // Nix store (if using NixOS)
-		"/run",      // Runtime data
-		"/home",     // Home directories (read-only access)
-	}
-
-	for _, dir := range systemDirs {
-		if _, err := os.Stat(dir); err == nil {
-			rules = append(rules, landlock.RODirs(dir))
-		}
-	}
+	// Grant read and execute access to the entire filesystem by default
+	// This allows all file reads and command executions
+	rules = append(rules, landlock.RODirs("/"))
 
 	// Grant read-write access to specified paths
 	for _, path := range config.AllowedPaths {
