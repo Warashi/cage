@@ -5,6 +5,10 @@ type SandboxConfig struct {
 	// AllowAll disables all restrictions (for testing/debugging)
 	AllowAll bool
 
+	// AllowKeychain allows access to the keychain
+	// This is only applicable on macOS
+	AllowKeychain bool
+
 	// AllowedPaths are paths where write access is granted
 	AllowedPaths []string
 

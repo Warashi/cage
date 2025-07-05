@@ -8,8 +8,9 @@ import (
 )
 
 type flags struct {
-	allowAll   bool
-	allowPaths []string
+	allowAll      bool
+	allowKeychain bool
+	allowPaths    []string
 }
 
 func parseFlags() (*flags, []string) {
@@ -20,6 +21,13 @@ func parseFlags() (*flags, []string) {
 		"allow-all",
 		false,
 		"Disable all restrictions (use for testing/debugging only)",
+	)
+
+	flag.BoolVar(
+		&f.allowKeychain,
+		"allow-keychain",
+		false,
+		"Allow write access to the macOS keychain (only for macOS)",
 	)
 
 	// Custom flag parsing to handle multiple --allow flags
@@ -64,10 +72,11 @@ func main() {
 
 	// Create sandbox configuration
 	config := &SandboxConfig{
-		AllowAll:     flags.allowAll,
-		AllowedPaths: flags.allowPaths,
-		Command:      args[0],
-		Args:         args[1:],
+		AllowAll:      flags.allowAll,
+		AllowKeychain: flags.allowKeychain,
+		AllowedPaths:  flags.allowPaths,
+		Command:       args[0],
+		Args:          args[1:],
 	}
 
 	// Execute in sandbox
