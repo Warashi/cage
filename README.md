@@ -156,6 +156,7 @@ cage \
   -allow $HOME/.npm \                          # Allow npm directory for MCP server executed via npx command
   -allow "$CLAUDE_CONFIG_DIR" \                # Allow Claude config directory
   -allow "$(git rev-parse --git-common-dir)" \ # Allow git common directory
+  -allow-keychain \                            # Allow keychain access (macOS)
   claude --dangerously-skip-permissions
 ```
 
