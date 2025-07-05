@@ -14,23 +14,11 @@ import (
 
 // runInSandbox implements sandbox execution for macOS using sandbox-exec
 func runInSandbox(config *SandboxConfig) error {
-	// If allow-all is set, run without restrictions
-	if config.AllowAll {
-		// Find the absolute path of the command
-		path, err := exec.LookPath(config.Command)
-		if err != nil {
-			return fmt.Errorf("command not found: %w", err)
-		}
-
-		// Prepare arguments: first arg is the program name
-		args := append([]string{config.Command}, config.Args...)
-
-		// Replace current process with the command
-		return syscall.Exec(path, args, os.Environ())
-	}
-
 	// Generate sandbox profile
-	profile := generateSandboxProfile(config.AllowedPaths)
+	profile, err := generateSandboxProfile(config)
+	if err != nil {
+		return fmt.Errorf("generate sandbox profile: %w", err)
+	}
 
 	// Find sandbox-exec executable
 	sandboxPath, err := exec.LookPath("sandbox-exec")
@@ -47,18 +35,37 @@ func runInSandbox(config *SandboxConfig) error {
 }
 
 // generateSandboxProfile creates a sandbox-exec profile with write restrictions
-func generateSandboxProfile(allowedPaths []string) string {
+func generateSandboxProfile(config *SandboxConfig) (string, error) {
 	var profile bytes.Buffer
 
 	// Write profile header
 	profile.WriteString("(version 1)\n")
+	profile.WriteString(`(import "system.sb")` + "\n")
 	profile.WriteString("(allow default)\n")
+
+	if config.AllowAll {
+		return profile.String(), nil
+	}
 
 	// Deny writes to all paths except allowed ones
 	profile.WriteString("(deny file-write*)\n")
+	// allow allow for /private/var/folders
+	profile.WriteString(
+		`(allow file-write* (regex #"^/private/var/folders/[^/]+/[^/]+/(C|T|0)($|/)"))` + "\n",
+	)
+
+	// If allow-keychain is set, allow access to the keychain
+	if config.AllowKeychain {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("get home directory: %w", err)
+		}
+		// allow for keychain
+		fmt.Fprintf(&profile, `(allow file-write* (subpath "%s/Library/Keychains"))`+"\n", homeDir)
+	}
 
 	// Allow writes to specified paths
-	for _, path := range allowedPaths {
+	for _, path := range config.AllowedPaths {
 		// Expand path to absolute
 		absPath, err := filepath.Abs(path)
 		if err != nil {
@@ -77,13 +84,13 @@ func generateSandboxProfile(allowedPaths []string) string {
 		escapedPath := escapePathForSandbox(realPath)
 
 		// Allow writes to the path and all subpaths
-		profile.WriteString(fmt.Sprintf("(allow file-write* (subpath \"%s\"))\n", escapedPath))
+		fmt.Fprintf(&profile, "(allow file-write* (subpath \"%s\"))\n", escapedPath)
 
 		// Also allow writes to the literal path (for directory creation)
-		profile.WriteString(fmt.Sprintf("(allow file-write* (literal \"%s\"))\n", escapedPath))
+		fmt.Fprintf(&profile, "(allow file-write* (literal \"%s\"))\n", escapedPath)
 	}
 
-	return profile.String()
+	return profile.String(), nil
 }
 
 // escapePathForSandbox escapes special characters in paths for sandbox profiles

@@ -43,6 +43,7 @@ cage [flags] <command> [args...]
 ### Flags
 
 - `-allow <path>`: Grant write access to a specific path (can be used multiple times)
+- `-allow-keychain`: Allow write access to the macOS keychain (macOS only)
 - `-allow-all`: Disable all restrictions (useful for debugging)
 
 ### Examples
@@ -67,6 +68,11 @@ cage python suspicious_script.py
 cage -allow ./output -- ./process_data.sh /sensitive/data
 ```
 
+#### Allow keychain access (macOS)
+```bash
+cage -allow-keychain -- security add-generic-password -s "MyService" -a "username" -w
+```
+
 #### Debug mode (no restrictions)
 ```bash
 cage -allow-all -- make install
@@ -83,6 +89,7 @@ cage -allow-all -- make install
 ### macOS
 - Uses `sandbox-exec` with custom sandbox profiles
 - Generates sandbox profiles that deny all writes except to allowed paths
+- Supports keychain access with `-allow-keychain` flag
 - Handles path resolution and proper escaping
 
 ### Other Platforms
@@ -149,6 +156,7 @@ cage \
   -allow $HOME/.npm \                          # Allow npm directory for MCP server executed via npx command
   -allow "$CLAUDE_CONFIG_DIR" \                # Allow Claude config directory
   -allow "$(git rev-parse --git-common-dir)" \ # Allow git common directory
+  -allow-keychain \                            # Allow keychain access (macOS)
   claude --dangerously-skip-permissions
 ```
 
