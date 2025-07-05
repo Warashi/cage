@@ -14,23 +14,8 @@ import (
 
 // runInSandbox implements sandbox execution for macOS using sandbox-exec
 func runInSandbox(config *SandboxConfig) error {
-	// If allow-all is set, run without restrictions
-	if config.AllowAll {
-		// Find the absolute path of the command
-		path, err := exec.LookPath(config.Command)
-		if err != nil {
-			return fmt.Errorf("command not found: %w", err)
-		}
-
-		// Prepare arguments: first arg is the program name
-		args := append([]string{config.Command}, config.Args...)
-
-		// Replace current process with the command
-		return syscall.Exec(path, args, os.Environ())
-	}
-
 	// Generate sandbox profile
-	profile := generateSandboxProfile(config.AllowedPaths)
+	profile := generateSandboxProfile(config)
 
 	// Find sandbox-exec executable
 	sandboxPath, err := exec.LookPath("sandbox-exec")
@@ -47,18 +32,22 @@ func runInSandbox(config *SandboxConfig) error {
 }
 
 // generateSandboxProfile creates a sandbox-exec profile with write restrictions
-func generateSandboxProfile(allowedPaths []string) string {
+func generateSandboxProfile(config *SandboxConfig) string {
 	var profile bytes.Buffer
 
 	// Write profile header
 	profile.WriteString("(version 1)\n")
 	profile.WriteString("(allow default)\n")
 
+	if config.AllowAll {
+		return profile.String()
+	}
+
 	// Deny writes to all paths except allowed ones
 	profile.WriteString("(deny file-write*)\n")
 
 	// Allow writes to specified paths
-	for _, path := range allowedPaths {
+	for _, path := range config.AllowedPaths {
 		// Expand path to absolute
 		absPath, err := filepath.Abs(path)
 		if err != nil {
