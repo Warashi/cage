@@ -13,7 +13,7 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 
 # Temporary test directory
-TEST_DIR=$(mktemp -d)
+TEST_DIR=$(mktemp -d .dev/cage_test.XXXXXX)
 CAGE_BIN="./cage"
 
 # Function to print test results
