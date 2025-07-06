@@ -13,6 +13,7 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 
 # Temporary test directory
+mkdir -p .dev # .dev is ignored by git
 TEST_DIR=$(mktemp -d .dev/cage_test.XXXXXX)
 CAGE_BIN="./cage"
 
