@@ -44,7 +44,11 @@ cage [flags] <command> [args...]
 
 - `-allow <path>`: Grant write access to a specific path (can be used multiple times)
 - `-allow-keychain`: Allow write access to the macOS keychain (macOS only)
+- `-allow-git`: Allow access to git common directory (enables git operations in worktrees)
 - `-allow-all`: Disable all restrictions (useful for debugging)
+- `-preset <name>`: Use a predefined preset configuration
+- `-list-presets`: List available presets
+- `-config <path>`: Path to custom configuration file
 
 ### Examples
 
@@ -77,6 +81,81 @@ cage -allow-keychain -- security add-generic-password -s "MyService" -a "usernam
 ```bash
 cage -allow-all -- make install
 ```
+
+#### Enable git operations in worktrees
+```bash
+# Allow git operations when working in a git worktree
+cage -allow-git -allow . -- git checkout -b new-feature
+cage -allow-git -allow . -- git commit -m "Update files"
+```
+
+#### Using presets
+```bash
+# Use npm preset for Node.js development
+cage -preset npm npm install
+
+# Use cargo preset for Rust development
+cage -preset cargo cargo build
+
+# Combine preset with additional allow paths
+cage -preset npm -allow ./logs npm run test
+
+# List available presets
+cage -list-presets
+
+# Use custom configuration file
+cage -config ~/my-presets.yaml -preset custom-preset ./script.sh
+```
+
+### Configuration File
+
+Cage supports YAML configuration files to define presets. The configuration file is searched in the following order:
+
+1. Path specified with `-config` flag
+2. `$XDG_CONFIG_HOME/cage/presets.yaml` (or platform-specific config directory)
+3. `$XDG_CONFIG_HOME/cage/presets.yml` (or platform-specific config directory)
+
+The default config directory is:
+- Linux: `~/.config/cage/`
+- macOS: `~/Library/Application Support/cage/`
+- Windows: `%APPDATA%\cage\`
+
+Example configuration file:
+
+```yaml
+presets:
+  npm:
+    allow:
+      - "."
+      - "~/.npm"
+      - "~/.cache/npm"
+      - "~/.npmrc"
+  
+  cargo:
+    allow:
+      - "."
+      - "~/.cargo"
+      - "~/.rustup"
+      - "~/.cache/sccache"
+  
+  git-enabled:
+    allow:
+      - "."
+      - "~/.ssh"
+    allow-git: true
+    allow-keychain: true  # macOS only
+  
+  custom:
+    allow:
+      - "./output"
+      - "/tmp"
+      - "~/.myapp"
+```
+
+Presets support the following options:
+- `allow`: List of paths to grant write access
+- `allow-git`: Enable access to git common directory (boolean)
+- `allow-keychain`: Enable macOS keychain access (boolean)
 
 ## Platform Implementation
 
