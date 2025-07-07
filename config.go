@@ -21,13 +21,21 @@ type Preset struct {
 	AllowGit      bool     `yaml:"allow-git"`
 }
 
+func userConfigDir() (string, error) {
+	// os.UserConfigDir() does not respect XDG_CONFIG_HOME on darwin.
+	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+		return dir, nil
+	}
+	return os.UserConfigDir()
+}
+
 func loadConfig(configPath string) (*Config, error) {
 	paths := []string{}
 
 	if configPath != "" {
 		paths = append(paths, configPath)
 	} else {
-		configDir, err := os.UserConfigDir()
+		configDir, err := userConfigDir()
 		if err == nil {
 			paths = append(paths, filepath.Join(configDir, "cage", "presets.yaml"))
 			paths = append(paths, filepath.Join(configDir, "cage", "presets.yml"))
