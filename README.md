@@ -55,6 +55,8 @@ cage [flags] <command> [args...]
 #### Run a script with temporary directory access
 ```bash
 cage -allow /tmp python analyze.py input.txt
+# Note: On macOS, /tmp is a symlink to /private/tmp
+# You may need to use: cage -allow /private/tmp python analyze.py input.txt
 ```
 
 #### Build a project with restricted output directories
@@ -148,7 +150,7 @@ presets:
   custom:
     allow:
       - "./output"
-      - "/tmp"
+      - "/tmp"  # Note: On macOS, use /private/tmp instead
       - "~/.myapp"
 ```
 
@@ -231,7 +233,7 @@ cage -allow ./reports -- python generate_report.py /confidential/data.csv
 ```bash
 cage \
   -allow . \                                   # Allow current directory
-  -allow /tmp \                                # Allow temporary directory
+  -allow /tmp \                                # Allow temporary directory (on macOS, use /private/tmp)
   -allow $HOME/.npm \                          # Allow npm directory for MCP server executed via npx command
   -allow "$CLAUDE_CONFIG_DIR" \                # Allow Claude config directory
   -allow "$(git rev-parse --git-common-dir)" \ # Allow git common directory
