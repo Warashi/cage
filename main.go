@@ -10,7 +10,11 @@ import (
 type flags struct {
 	allowAll      bool
 	allowKeychain bool
+	allowGit      bool
 	allowPaths    []string
+	preset        string
+	listPresets   bool
+	configPath    string
 }
 
 func parseFlags() (*flags, []string) {
@@ -30,12 +34,40 @@ func parseFlags() (*flags, []string) {
 		"Allow write access to the macOS keychain (only for macOS)",
 	)
 
+	flag.BoolVar(
+		&f.allowGit,
+		"allow-git",
+		false,
+		"Allow access to git common directory (enables git operations in worktrees)",
+	)
+
 	// Custom flag parsing to handle multiple --allow flags
 	var allowFlags arrayFlags
 	flag.Var(
 		&allowFlags,
 		"allow",
 		"Grant write access to specific paths (can be used multiple times)",
+	)
+
+	flag.StringVar(
+		&f.preset,
+		"preset",
+		"",
+		"Use a predefined preset configuration",
+	)
+
+	flag.BoolVar(
+		&f.listPresets,
+		"list-presets",
+		false,
+		"List available presets",
+	)
+
+	flag.StringVar(
+		&f.configPath,
+		"config",
+		"",
+		"Path to custom configuration file",
 	)
 
 	flag.Parse()
@@ -60,6 +92,27 @@ func (a *arrayFlags) Set(value string) error {
 func main() {
 	flags, args := parseFlags()
 
+	// Load configuration
+	config, err := loadConfig(flags.configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cage: error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Handle list-presets flag
+	if flags.listPresets {
+		presets := config.ListPresets()
+		if len(presets) == 0 {
+			fmt.Println("No presets available")
+		} else {
+			fmt.Println("Available presets:")
+			for _, name := range presets {
+				fmt.Printf("  - %s\n", name)
+			}
+		}
+		os.Exit(0)
+	}
+
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "Usage: cage [flags] <command> [command-args...]\n")
 		fmt.Fprintf(
@@ -70,17 +123,58 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Merge preset paths with command-line paths
+	allowedPaths := flags.allowPaths
+	allowKeychain := flags.allowKeychain
+	allowGit := flags.allowGit
+
+	if flags.preset != "" {
+		preset, ok := config.GetPreset(flags.preset)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "cage: preset '%s' not found\n", flags.preset)
+			os.Exit(1)
+		}
+
+		// Process preset to expand dynamic values
+		processedPreset, err := preset.ProcessPreset()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cage: error processing preset '%s': %v\n", flags.preset, err)
+			os.Exit(1)
+		}
+
+		// Preset paths are added before command-line paths
+		allowedPaths = append(processedPreset.Allow, allowedPaths...)
+
+		// Preset's allowKeychain is ORed with command-line flag
+		allowKeychain = allowKeychain || processedPreset.AllowKeychain
+
+		// Preset's allowGit is ORed with command-line flag
+		allowGit = allowGit || processedPreset.AllowGit
+	}
+
+	// Add git common directory if allowGit is enabled and not already handled by preset
+	if allowGit && flags.preset == "" {
+		gitCommonDir, err := getGitCommonDir()
+		if err != nil {
+			// Log the error but don't fail - the directory might not be a git repo
+			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		} else {
+			allowedPaths = append(allowedPaths, gitCommonDir)
+		}
+	}
+
 	// Create sandbox configuration
-	config := &SandboxConfig{
+	sandboxConfig := &SandboxConfig{
 		AllowAll:      flags.allowAll,
-		AllowKeychain: flags.allowKeychain,
-		AllowedPaths:  flags.allowPaths,
+		AllowKeychain: allowKeychain,
+		AllowGit:      allowGit,
+		AllowedPaths:  allowedPaths,
 		Command:       args[0],
 		Args:          args[1:],
 	}
 
 	// Execute in sandbox
-	if err := RunInSandbox(config); err != nil {
+	if err := RunInSandbox(sandboxConfig); err != nil {
 		fmt.Fprintf(os.Stderr, "cage: %v\n", err)
 		os.Exit(1)
 	}

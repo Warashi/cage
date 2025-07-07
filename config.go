@@ -1,0 +1,127 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	"github.com/goccy/go-yaml"
+)
+
+type Config struct {
+	Presets map[string]Preset `yaml:"presets"`
+}
+
+type Preset struct {
+	Allow         []string `yaml:"allow"`
+	AllowKeychain bool     `yaml:"allow-keychain"`
+	AllowGit      bool     `yaml:"allow-git"`
+}
+
+func loadConfig(configPath string) (*Config, error) {
+	paths := []string{}
+
+	if configPath != "" {
+		paths = append(paths, configPath)
+	} else {
+		configDir, err := os.UserConfigDir()
+		if err == nil {
+			paths = append(paths, filepath.Join(configDir, "cage", "presets.yaml"))
+			paths = append(paths, filepath.Join(configDir, "cage", "presets.yml"))
+		}
+	}
+
+	for _, path := range paths {
+		config, err := loadConfigFromFile(path)
+		if err == nil {
+			return config, nil
+		}
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("error loading config from %s: %w", path, err)
+		}
+	}
+
+	return &Config{Presets: make(map[string]Preset)}, nil
+}
+
+func loadConfigFromFile(path string) (*Config, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	var config Config
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+func (c *Config) GetPreset(name string) (Preset, bool) {
+	preset, ok := c.Presets[name]
+	return preset, ok
+}
+
+func (c *Config) ListPresets() []string {
+	presets := make([]string, 0, len(c.Presets))
+	for name := range c.Presets {
+		presets = append(presets, name)
+	}
+	return presets
+}
+
+// expandEnvOnly expands environment variables in a path
+// This is safer than shell expansion as it doesn't allow command execution
+func expandEnvOnly(path string) string {
+	return os.ExpandEnv(path)
+}
+
+// getGitCommonDir returns the git common directory for the current repository
+// This is useful for git worktrees where the .git directory is a file pointing to the common dir
+func getGitCommonDir() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--git-common-dir")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get git common directory: %w", err)
+	}
+	// Trim newline from output
+	return strings.TrimSpace(string(output)), nil
+}
+
+// ProcessPreset expands all dynamic values in a preset
+func (p *Preset) ProcessPreset() (*Preset, error) {
+	processed := &Preset{
+		AllowKeychain: p.AllowKeychain,
+		AllowGit:      p.AllowGit,
+		Allow:         make([]string, 0, len(p.Allow)),
+	}
+
+	// Expand environment variables in paths
+	for _, path := range p.Allow {
+		expanded := expandEnvOnly(path)
+		processed.Allow = append(processed.Allow, expanded)
+	}
+
+	// Add git common directory if AllowGit is enabled
+	if p.AllowGit {
+		gitCommonDir, err := getGitCommonDir()
+		if err != nil {
+			// Log the error but don't fail - the directory might not be a git repo
+			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		} else {
+			processed.Allow = append(processed.Allow, gitCommonDir)
+		}
+	}
+
+	return processed, nil
+}

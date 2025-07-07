@@ -1,0 +1,61 @@
+presets:
+  npm:
+    allow:
+      - "."
+      - "~/.npm"
+      - "~/.cache/npm"
+      - "~/.npmrc"
+  
+  cargo:
+    allow:
+      - "."
+      - "~/.cargo"
+      - "~/.rustup"
+      - "~/.cache/sccache"
+  
+  pip:
+    allow:
+      - "."
+      - "~/.cache/pip"
+      - "~/.local"
+      - "~/Library/Caches/pip"
+  
+  go:
+    allow:
+      - "."
+      - "~/go"
+      - "~/.cache/go-build"
+  
+  node:
+    allow:
+      - "."
+      - "~/.npm"
+      - "~/.cache/npm"
+      - "~/.npmrc"
+      - "node_modules"
+  
+  ruby:
+    allow:
+      - "."
+      - "~/.gem"
+      - "~/.bundle"
+      - "~/.rbenv"
+      - "~/.rvm"
+  
+  python:
+    allow:
+      - "."
+      - "~/.pyenv"
+      - "~/.cache/pip"
+      - "~/.local"
+      - "~/.virtualenvs"
+      - "venv"
+      - ".venv"
+  
+  homebrew:
+    allow:
+      - "."
+      - "/usr/local/Homebrew"
+      - "/opt/homebrew"
+      - "~/Library/Caches/Homebrew"
+      - "~/Library/Logs/Homebrew"
