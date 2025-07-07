@@ -73,15 +73,8 @@ func generateSandboxProfile(config *SandboxConfig) (string, error) {
 			absPath = path
 		}
 
-		// Resolve symlinks to get the real path
-		realPath, err := filepath.EvalSymlinks(absPath)
-		if err != nil {
-			// If we can't resolve symlinks (e.g., path doesn't exist yet), use the absolute path
-			realPath = absPath
-		}
-
 		// Escape the path for the sandbox profile
-		escapedPath := escapePathForSandbox(realPath)
+		escapedPath := escapePathForSandbox(absPath)
 
 		// Allow writes to the path and all subpaths
 		fmt.Fprintf(&profile, "(allow file-write* (subpath \"%s\"))\n", escapedPath)
