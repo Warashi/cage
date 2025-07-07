@@ -5,5 +5,5 @@ pkgs.buildGoLatestModule {
   pname = "cage";
   version = "0.0.1";
   src = ./.;
-  vendorHash = "sha256-3Q6UJQxuJwXhJorwPcvG5ykZbOjJSC2EZ8WG5xftU64=";
+  vendorHash = "sha256-EnEy9KELRFyM+uB1h9mCxuDeUirFiuoLnHURkg8/oQs=";
 }

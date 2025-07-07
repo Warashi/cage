@@ -9,6 +9,10 @@ type SandboxConfig struct {
 	// This is only applicable on macOS
 	AllowKeychain bool
 
+	// AllowGit allows access to git common directory
+	// This enables git operations in worktrees
+	AllowGit bool
+
 	// AllowedPaths are paths where write access is granted
 	AllowedPaths []string
 
