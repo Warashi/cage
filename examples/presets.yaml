@@ -2,53 +2,53 @@ presets:
   npm:
     allow:
       - "."
-      - "~/.npm"
-      - "~/.cache/npm"
-      - "~/.npmrc"
+      - "$HOME/.npm"
+      - "$HOME/.cache/npm"
+      - "$HOME/.npmrc"
   
   cargo:
     allow:
       - "."
-      - "~/.cargo"
-      - "~/.rustup"
-      - "~/.cache/sccache"
+      - "$HOME/.cargo"
+      - "$HOME/.rustup"
+      - "$HOME/.cache/sccache"
   
   pip:
     allow:
       - "."
-      - "~/.cache/pip"
-      - "~/.local"
-      - "~/Library/Caches/pip"
+      - "$HOME/.cache/pip"
+      - "$HOME/.local"
+      - "$HOME/Library/Caches/pip"
   
   go:
     allow:
       - "."
-      - "~/go"
-      - "~/.cache/go-build"
+      - "$HOME/go"
+      - "$HOME/.cache/go-build"
   
   node:
     allow:
       - "."
-      - "~/.npm"
-      - "~/.cache/npm"
-      - "~/.npmrc"
+      - "$HOME/.npm"
+      - "$HOME/.cache/npm"
+      - "$HOME/.npmrc"
       - "node_modules"
   
   ruby:
     allow:
       - "."
-      - "~/.gem"
-      - "~/.bundle"
-      - "~/.rbenv"
-      - "~/.rvm"
+      - "$HOME/.gem"
+      - "$HOME/.bundle"
+      - "$HOME/.rbenv"
+      - "$HOME/.rvm"
   
   python:
     allow:
       - "."
-      - "~/.pyenv"
-      - "~/.cache/pip"
-      - "~/.local"
-      - "~/.virtualenvs"
+      - "$HOME/.pyenv"
+      - "$HOME/.cache/pip"
+      - "$HOME/.local"
+      - "$HOME/.virtualenvs"
       - "venv"
       - ".venv"
   
@@ -57,5 +57,19 @@ presets:
       - "."
       - "/usr/local/Homebrew"
       - "/opt/homebrew"
-      - "~/Library/Caches/Homebrew"
-      - "~/Library/Logs/Homebrew"
+      - "$HOME/Library/Caches/Homebrew"
+      - "$HOME/Library/Logs/Homebrew"
+
+  claude-code:
+    allow:
+      - "."
+      - "/tmp" # on Linux
+      - "/private/tmp" # on macOS
+      - "/dev/tty"
+      - "$HOME/.claude"
+      - "$HOME/.claude.json"
+      - "$HOME/.claude.json.backup"
+      - "$HOME/.claude.json.lock"
+      - "$HOME/.claude.lock"
+    allow-keychain: true
+    allow-git: true

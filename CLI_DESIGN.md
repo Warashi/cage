@@ -27,7 +27,7 @@ cage [flags] -- <command> [command-flags] [command-args...]
 
 ```bash
 --allow <path>     # Grant write access to specific paths (can be used multiple times)
-                   # Example: --allow /tmp --allow ~/output
+                   # Example: --allow /tmp --allow $HOME/output
 ```
 
 ## Usage Examples
@@ -42,7 +42,7 @@ cage ls -la
 cage --allow /tmp python script.py
 
 # Allow writing to multiple directories
-cage --allow /tmp --allow ~/output -- npm run build
+cage --allow /tmp --allow $HOME/output -- npm run build
 
 # Run in investigation mode (no restrictions)
 cage --allow-all make install
@@ -107,7 +107,7 @@ cage --allow ./dist -- npm run build
 cage python suspicious_script.py
 
 # Test third-party tools with minimal permissions
-cage --allow ~/safe-output -- third-party-tool process data.json
+cage --allow $HOME/safe-output -- third-party-tool process data.json
 ```
 
 ### Data Processing
