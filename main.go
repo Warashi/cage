@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -130,6 +131,10 @@ func main() {
 	allowKeychain := flags.allowKeychain
 	allowGit := flags.allowGit
 
+	// Track unique paths to avoid duplicates
+	pathSet := make(map[string]struct{})
+	var uniquePaths []string
+
 	// Process each preset and merge their settings
 	for _, presetName := range flags.presets {
 		preset, ok := config.GetPreset(presetName)
@@ -145,8 +150,18 @@ func main() {
 			os.Exit(1)
 		}
 
-		// Preset paths are added before command-line paths
-		allowedPaths = append(processedPreset.Allow, allowedPaths...)
+		// Add preset paths, checking for duplicates
+		for _, path := range processedPreset.Allow {
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				// If we can't get absolute path, use original path
+				absPath = path
+			}
+			if _, exists := pathSet[absPath]; !exists {
+				pathSet[absPath] = struct{}{}
+				uniquePaths = append(uniquePaths, path)
+			}
+		}
 
 		// Preset's allowKeychain is ORed with command-line flag
 		allowKeychain = allowKeychain || processedPreset.AllowKeychain
@@ -154,6 +169,22 @@ func main() {
 		// Preset's allowGit is ORed with command-line flag
 		allowGit = allowGit || processedPreset.AllowGit
 	}
+
+	// Add command-line paths, checking for duplicates
+	for _, path := range allowedPaths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			// If we can't get absolute path, use original path
+			absPath = path
+		}
+		if _, exists := pathSet[absPath]; !exists {
+			pathSet[absPath] = struct{}{}
+			uniquePaths = append(uniquePaths, path)
+		}
+	}
+
+	// Replace allowedPaths with unique paths
+	allowedPaths = uniquePaths
 
 	// Add git common directory if allowGit is enabled and not already handled by preset
 	if allowGit && len(flags.presets) == 0 {
