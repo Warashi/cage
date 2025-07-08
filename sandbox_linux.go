@@ -39,6 +39,14 @@ func runInSandbox(config *SandboxConfig) error {
 
 	// Grant read-write access to specified paths
 	for _, path := range config.AllowedPaths {
+		// Check if the path exists before adding the rule
+		if _, err := os.Stat(path); err != nil {
+			if os.IsNotExist(err) {
+				// Skip non-existent paths silently
+				continue
+			}
+			// For other errors, still try to add the rule
+		}
 		rules = append(rules, landlock.RWDirs(path))
 	}
 
