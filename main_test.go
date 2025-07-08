@@ -116,16 +116,9 @@ func TestMultiplePresetsWithDuplicatePaths(t *testing.T) {
 }
 
 func TestPresetPathsWithRelativeAndAbsolute(t *testing.T) {
-	// Save current directory
-	originalWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get current directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
-
 	// Create a temporary directory and change to it
 	tmpDir := t.TempDir()
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	configPath := filepath.Join(tmpDir, "test.yaml")
 
