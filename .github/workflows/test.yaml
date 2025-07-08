@@ -31,4 +31,5 @@ jobs:
           go-version-file: 'go.mod'
           cache: "${{ github.event_name == 'push' }}"
       - run: go build
+      - run: go test -v ./...
       - run: ./test_e2e.sh
