@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  pull_request_target:
+    types:
+      - labeled
+      - unlabeled
+    branches:
+      - main
 
 permissions: {}
 
@@ -14,6 +20,7 @@ concurrency:
 jobs:
   tagpr:
     runs-on: ubuntu-latest
+    if: github.event.label.name == 'tagpr:major' || github.event.label.name == 'tagpr:minor' || github.event_name == 'push'
     steps:
       - uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
         id: app-token
