@@ -93,9 +93,9 @@ func TestMultiplePresetsWithDuplicatePaths(t *testing.T) {
 
 	// Verify specific paths are present
 	expectedPaths := map[string]bool{
-		"/tmp":        false,
-		"/var/log":    false,
-		"/usr/local":  false,
+		"/tmp":         false,
+		"/var/log":     false,
+		"/usr/local":   false,
 		"/custom/path": false,
 	}
 
