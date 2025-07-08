@@ -12,7 +12,7 @@ type flags struct {
 	allowKeychain bool
 	allowGit      bool
 	allowPaths    []string
-	preset        string
+	presets       []string
 	listPresets   bool
 	configPath    string
 }
@@ -49,11 +49,12 @@ func parseFlags() (*flags, []string) {
 		"Grant write access to specific paths (can be used multiple times)",
 	)
 
-	flag.StringVar(
-		&f.preset,
+	// Custom flag parsing to handle multiple --preset flags
+	var presetFlags arrayFlags
+	flag.Var(
+		&presetFlags,
 		"preset",
-		"",
-		"Use a predefined preset configuration",
+		"Use a predefined preset configuration (can be used multiple times)",
 	)
 
 	flag.BoolVar(
@@ -73,6 +74,7 @@ func parseFlags() (*flags, []string) {
 	flag.Parse()
 
 	f.allowPaths = []string(allowFlags)
+	f.presets = []string(presetFlags)
 
 	return f, flag.Args()
 }
@@ -128,17 +130,18 @@ func main() {
 	allowKeychain := flags.allowKeychain
 	allowGit := flags.allowGit
 
-	if flags.preset != "" {
-		preset, ok := config.GetPreset(flags.preset)
+	// Process each preset and merge their settings
+	for _, presetName := range flags.presets {
+		preset, ok := config.GetPreset(presetName)
 		if !ok {
-			fmt.Fprintf(os.Stderr, "cage: preset '%s' not found\n", flags.preset)
+			fmt.Fprintf(os.Stderr, "cage: preset '%s' not found\n", presetName)
 			os.Exit(1)
 		}
 
 		// Process preset to expand dynamic values
 		processedPreset, err := preset.ProcessPreset()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "cage: error processing preset '%s': %v\n", flags.preset, err)
+			fmt.Fprintf(os.Stderr, "cage: error processing preset '%s': %v\n", presetName, err)
 			os.Exit(1)
 		}
 
@@ -153,7 +156,7 @@ func main() {
 	}
 
 	// Add git common directory if allowGit is enabled and not already handled by preset
-	if allowGit && flags.preset == "" {
+	if allowGit && len(flags.presets) == 0 {
 		gitCommonDir, err := getGitCommonDir()
 		if err != nil {
 			// Log the error but don't fail - the directory might not be a git repo
