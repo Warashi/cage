@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.1](https://github.com/Warashi/cage/compare/v0.1.0...v0.1.1) - 2025-07-08
+- fix: set correct permissions on linux implementations by @Warashi in https://github.com/Warashi/cage/pull/14
+
 ## [v0.1.0](https://github.com/Warashi/cage/compare/v0.0.1...v0.1.0) - 2025-07-08
 - feat: add config file to define presets by @Warashi in https://github.com/Warashi/cage/pull/6
 - fix: don't resolve symlinks by @Warashi in https://github.com/Warashi/cage/pull/8
