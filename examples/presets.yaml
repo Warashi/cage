@@ -59,3 +59,17 @@ presets:
       - "/opt/homebrew"
       - "$HOME/Library/Caches/Homebrew"
       - "$HOME/Library/Logs/Homebrew"
+
+  claude-code:
+    allow:
+      - "."
+      - "/tmp" # on Linux
+      - "/private/tmp" # on macOS
+      - "/dev/tty"
+      - "$HOME/.claude"
+      - "$HOME/.claude.json"
+      - "$HOME/.claude.json.backup"
+      - "$HOME/.claude.json.lock"
+      - "$HOME/.claude.lock"
+    allow-keychain: true
+    allow-git: true
