@@ -106,7 +106,7 @@ cage -preset npm -allow ./logs npm run test
 cage -list-presets
 
 # Use custom configuration file
-cage -config ~/my-presets.yaml -preset custom-preset ./script.sh
+cage -config $HOME/my-presets.yaml -preset custom-preset ./script.sh
 ```
 
 ### Configuration File
@@ -118,8 +118,8 @@ Cage supports YAML configuration files to define presets. The configuration file
 3. `$XDG_CONFIG_HOME/cage/presets.yml` (or platform-specific config directory)
 
 The default config directory is:
-- Linux: `~/.config/cage/`
-- macOS: `~/Library/Application Support/cage/`
+- Linux: `$HOME/.config/cage/`
+- macOS: `$HOME/Library/Application Support/cage/`
 - Windows: `%APPDATA%\cage\`
 
 Example configuration file:
@@ -129,21 +129,21 @@ presets:
   npm:
     allow:
       - "."
-      - "~/.npm"
-      - "~/.cache/npm"
-      - "~/.npmrc"
+      - "$HOME/.npm"
+      - "$HOME/.cache/npm"
+      - "$HOME/.npmrc"
   
   cargo:
     allow:
       - "."
-      - "~/.cargo"
-      - "~/.rustup"
-      - "~/.cache/sccache"
+      - "$HOME/.cargo"
+      - "$HOME/.rustup"
+      - "$HOME/.cache/sccache"
   
   git-enabled:
     allow:
       - "."
-      - "~/.ssh"
+      - "$HOME/.ssh"
     allow-git: true
     allow-keychain: true  # macOS only
   
@@ -151,7 +151,7 @@ presets:
     allow:
       - "./output"
       - "/tmp"  # Note: On macOS, use /private/tmp instead
-      - "~/.myapp"
+      - "$HOME/.myapp"
 ```
 
 Presets support the following options:
