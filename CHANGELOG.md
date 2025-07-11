@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.2](https://github.com/Warashi/cage/compare/v0.1.1...v0.1.2) - 2025-07-11
+- feat: GoReleaser by @Warashi in https://github.com/Warashi/cage/pull/16
+
 ## [v0.1.1](https://github.com/Warashi/cage/compare/v0.1.0...v0.1.1) - 2025-07-08
 - fix: set correct permissions on linux implementations by @Warashi in https://github.com/Warashi/cage/pull/14
 
