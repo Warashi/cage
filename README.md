@@ -20,12 +20,18 @@ Cage provides a unified way to run potentially untrusted commands or scripts wit
 
 ## Installation
 
+### Pre-built Binaries with Homebrew Cask
+We doesn't sign the binaries, so you need to use `--no-quarantine` flag to avoid quarantine issues on macOS.
+```bash
+brew install --cask Warashi/tap/cage --no-quarantine
+```
+
+### With `go install`
 ```bash
 go install github.com/Warashi/cage@latest
 ```
 
-Or build from source:
-
+### From Source
 ```bash
 git clone https://github.com/Warashi/cage
 cd cage
