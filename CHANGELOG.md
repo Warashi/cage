@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.4](https://github.com/Warashi/cage/compare/v0.1.3...v0.1.4) - 2025-07-11
+- fix: fetch tags to use it in goreleaser by @Warashi in https://github.com/Warashi/cage/pull/20
+
 ## [v0.1.3](https://github.com/Warashi/cage/compare/v0.1.2...v0.1.3) - 2025-07-11
 - fix: add owner and repositories in action input by @Warashi in https://github.com/Warashi/cage/pull/18
 
