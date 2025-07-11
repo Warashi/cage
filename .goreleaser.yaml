@@ -1,0 +1,40 @@
+version: 2
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+
+release:
+  mode: keep-existing # managed by tagpr
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+homebrew_casks:
+  - url:
+      verified: "github.com/Warashi/cage/"
+      using: ":homebrew_curl"
+
+    commit_author:
+      name: warashi-homebrew-tap
+      email: 1584123+warashi-homebrew-tap[bot]@users.noreply.github.com
+
+    commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
+    directory: Casks
+    skip_upload: auto
+
+    repository:
+      owner: Warashi
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
