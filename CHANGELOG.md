@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.3](https://github.com/Warashi/cage/compare/v0.1.2...v0.1.3) - 2025-07-11
+- fix: add owner and repositories in action input by @Warashi in https://github.com/Warashi/cage/pull/18
+
 ## [v0.1.2](https://github.com/Warashi/cage/compare/v0.1.1...v0.1.2) - 2025-07-11
 - feat: GoReleaser by @Warashi in https://github.com/Warashi/cage/pull/16
 
