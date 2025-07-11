@@ -3,3 +3,5 @@
 /cage
 /.claude/settings.local.json
 result
+# Added by goreleaser init:
+dist/

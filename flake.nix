@@ -74,6 +74,7 @@
             packages = with pkgs; [
               # keep-sorted start
               go
+              goreleaser
               gotools
               # keep-sorted end
             ];
