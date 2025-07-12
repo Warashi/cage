@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.5](https://github.com/Warashi/cage/compare/v0.1.4...v0.1.5) - 2025-07-12
+- docs: add install with Homebrew Cask by @Warashi in https://github.com/Warashi/cage/pull/22
+- feat: add -version option by @Warashi in https://github.com/Warashi/cage/pull/24
+
 ## [v0.1.4](https://github.com/Warashi/cage/compare/v0.1.3...v0.1.4) - 2025-07-11
 - fix: fetch tags to use it in goreleaser by @Warashi in https://github.com/Warashi/cage/pull/20
 
