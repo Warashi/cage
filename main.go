@@ -5,8 +5,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 )
+
+var version string
+
+func Version() string {
+	if version != "" {
+		return version
+	}
+
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.Main.Version == "" {
+		return "(devel)"
+	}
+	return info.Main.Version
+}
 
 type flags struct {
 	allowAll      bool
@@ -16,6 +31,7 @@ type flags struct {
 	presets       []string
 	listPresets   bool
 	configPath    string
+	version       bool
 }
 
 func parseFlags() (*flags, []string) {
@@ -72,6 +88,13 @@ func parseFlags() (*flags, []string) {
 		"Path to custom configuration file",
 	)
 
+	flag.BoolVar(
+		&f.version,
+		"version",
+		false,
+		"Print version information and exit",
+	)
+
 	flag.Parse()
 
 	f.allowPaths = []string(allowFlags)
@@ -94,6 +117,12 @@ func (a *arrayFlags) Set(value string) error {
 
 func main() {
 	flags, args := parseFlags()
+
+	// Handle version flag
+	if flags.version {
+		fmt.Printf("cage version %s\n", Version())
+		os.Exit(0)
+	}
 
 	// Load configuration
 	config, err := loadConfig(flags.configPath)
