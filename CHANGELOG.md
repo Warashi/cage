@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.6](https://github.com/Warashi/cage/compare/v0.1.5...v0.1.6) - 2025-07-17
+- feat: add -dry-run option by @Warashi in https://github.com/Warashi/cage/pull/25
+
 ## [v0.1.5](https://github.com/Warashi/cage/compare/v0.1.4...v0.1.5) - 2025-07-12
 - docs: add install with Homebrew Cask by @Warashi in https://github.com/Warashi/cage/pull/22
 - feat: add -version option by @Warashi in https://github.com/Warashi/cage/pull/24
