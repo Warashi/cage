@@ -32,6 +32,7 @@ type flags struct {
 	listPresets   bool
 	configPath    string
 	version       bool
+	dryRun        bool
 }
 
 func parseFlags() (*flags, []string) {
@@ -93,6 +94,13 @@ func parseFlags() (*flags, []string) {
 		"version",
 		false,
 		"Print version information and exit",
+	)
+
+	flag.BoolVar(
+		&f.dryRun,
+		"dry-run",
+		false,
+		"Show the generated sandbox profile without executing",
 	)
 
 	flag.Parse()
@@ -234,6 +242,11 @@ func main() {
 		AllowedPaths:  allowedPaths,
 		Command:       args[0],
 		Args:          args[1:],
+	}
+
+	// Handle dry-run flag
+	if flags.dryRun {
+		printDryRunAndExit(sandboxConfig)
 	}
 
 	// Execute in sandbox
