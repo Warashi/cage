@@ -16,7 +16,6 @@ func showDryRun(config *SandboxConfig) error {
 	fmt.Println("Platform: Linux")
 	fmt.Println("Technology: Landlock LSM")
 	fmt.Println()
-	fmt.Println("Note: On Linux, cage uses Landlock LSM instead of sandbox-exec.")
 	fmt.Println("The following restrictions would be applied:")
 	fmt.Println()
 	fmt.Println("Rules:")
