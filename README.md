@@ -52,7 +52,7 @@ cage [flags] <command> [args...]
 - `-allow-keychain`: Allow write access to the macOS keychain (macOS only)
 - `-allow-git`: Allow access to git common directory (enables git operations in worktrees)
 - `-allow-all`: Disable all restrictions (useful for debugging)
-- `-preset <name>`: Use a predefined preset configuration
+- `-preset <name>`: Use a predefined preset configuration (can be used multiple times)
 - `-list-presets`: List available presets
 - `-config <path>`: Path to custom configuration file
 
@@ -113,6 +113,11 @@ cage -list-presets
 
 # Use custom configuration file
 cage -config $HOME/my-presets.yaml -preset custom-preset ./script.sh
+
+# Auto-presets in action (when configured)
+cage claude help  # Automatically applies claude-code preset
+cage npm install  # Automatically applies npm preset
+cage yarn build   # Automatically applies npm preset (via regex pattern)
 ```
 
 ### Configuration File
@@ -164,6 +169,52 @@ Presets support the following options:
 - `allow`: List of paths to grant write access
 - `allow-git`: Enable access to git common directory (boolean)
 - `allow-keychain`: Enable macOS keychain access (boolean)
+
+#### Auto-Presets
+
+Cage can automatically apply presets based on the command being executed. This feature helps reduce typing and ensures consistent permissions for common tools.
+
+Example auto-presets configuration:
+
+```yaml
+presets:
+  claude-code:
+    allow:
+      - "$HOME/.config/claude"
+      - "$HOME/tmp"
+      - "/tmp"
+    allow-keychain: true
+    
+  npm:
+    allow:
+      - "."
+      - "$HOME/.npm"
+      
+auto-presets:
+  # Exact command match
+  - command: claude
+    presets:
+      - claude-code
+      - tmp
+      
+  # Regex pattern match
+  - command-pattern: ^(npm|npx|yarn)$
+    presets:
+      - npm
+      
+  # Multiple presets can be applied
+  - command: git
+    presets:
+      - git-enabled
+      - tmp
+```
+
+Auto-preset rules support:
+- `command`: Exact command name match (basename of the command)
+- `command-pattern`: Regular expression pattern to match command names
+- `presets`: List of preset names to apply
+
+**Note**: Auto-presets are only applied when no explicit `--preset` flags are provided. Explicit presets always take precedence.
 
 ## Platform Implementation
 

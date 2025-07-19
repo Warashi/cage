@@ -6,19 +6,27 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/goccy/go-yaml"
 )
 
 type Config struct {
-	Presets map[string]Preset `yaml:"presets"`
+	Presets     map[string]Preset `yaml:"presets"`
+	AutoPresets []AutoPresetRule  `yaml:"auto-presets"`
 }
 
 type Preset struct {
 	Allow         []string `yaml:"allow"`
 	AllowKeychain bool     `yaml:"allow-keychain"`
 	AllowGit      bool     `yaml:"allow-git"`
+}
+
+type AutoPresetRule struct {
+	Command        string   `yaml:"command,omitempty"`
+	CommandPattern string   `yaml:"command-pattern,omitempty"`
+	Presets        []string `yaml:"presets"`
 }
 
 func userConfigDir() (string, error) {
@@ -86,6 +94,44 @@ func (c *Config) ListPresets() []string {
 		presets = append(presets, name)
 	}
 	return presets
+}
+
+// GetAutoPresets returns the preset names that should be automatically applied for the given command
+func (c *Config) GetAutoPresets(command string) ([]string, error) {
+	var presets []string
+
+	// Extract just the base command name from the full path
+	baseCommand := filepath.Base(command)
+
+	for _, rule := range c.AutoPresets {
+		matched := false
+
+		// Check exact command match
+		if rule.Command != "" && rule.Command == baseCommand {
+			matched = true
+		}
+
+		// Check regex pattern match
+		if !matched && rule.CommandPattern != "" {
+			re, err := regexp.Compile(rule.CommandPattern)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"invalid regex pattern in auto-preset: %s: %w",
+					rule.CommandPattern,
+					err,
+				)
+			}
+			if re.MatchString(baseCommand) {
+				matched = true
+			}
+		}
+
+		if matched {
+			presets = append(presets, rule.Presets...)
+		}
+	}
+
+	return presets, nil
 }
 
 // expandEnvOnly expands environment variables in a path
