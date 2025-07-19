@@ -163,16 +163,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Auto-detect presets if no explicit presets were provided
-	if len(flags.presets) == 0 && len(config.AutoPresets) > 0 {
+	// Auto-detect presets and merge with command-line presets
+	if len(config.AutoPresets) > 0 {
 		autoPresets, err := config.GetAutoPresets(args[0])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "cage: error detecting auto-presets: %v\n", err)
 			os.Exit(1)
 		}
 
-		// Apply auto-detected presets
-		flags.presets = autoPresets
+		// Merge auto-detected presets with command-line presets
+		// Command-line presets come first to maintain priority
+		flags.presets = append(flags.presets, autoPresets...)
 	}
 
 	// Merge preset paths with command-line paths
