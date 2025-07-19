@@ -214,7 +214,7 @@ Auto-preset rules support:
 - `command-pattern`: Regular expression pattern to match command names
 - `presets`: List of preset names to apply
 
-**Note**: Auto-presets are only applied when no explicit `--preset` flags are provided. Explicit presets always take precedence.
+**Note**: Auto-presets are merged with explicit `--preset` flags. Command-line presets are processed first, maintaining their priority over auto-presets.
 
 ## Platform Implementation
 
