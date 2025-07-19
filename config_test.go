@@ -392,3 +392,197 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 		}
 	}
 }
+
+func TestGetAutoPresets(t *testing.T) {
+	config := &Config{
+		Presets: map[string]Preset{
+			"claude-code": {Allow: []string{"/tmp"}},
+			"npm":         {Allow: []string{"~/.npm"}},
+			"python":      {Allow: []string{"~/.python"}},
+		},
+		AutoPresets: []AutoPresetRule{
+			{
+				Command: "claude",
+				Presets: []string{"claude-code"},
+			},
+			{
+				CommandPattern: "^(npm|npx|yarn)$",
+				Presets:        []string{"npm"},
+			},
+			{
+				Command: "python",
+				Presets: []string{"python"},
+			},
+			{
+				CommandPattern: "^python[0-9]+$",
+				Presets:        []string{"python"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		command     string
+		wantPresets []string
+		wantErr     bool
+	}{
+		{
+			name:        "exact command match",
+			command:     "claude",
+			wantPresets: []string{"claude-code"},
+			wantErr:     false,
+		},
+		{
+			name:        "exact command match with path",
+			command:     "/usr/bin/claude",
+			wantPresets: []string{"claude-code"},
+			wantErr:     false,
+		},
+		{
+			name:        "regex pattern match npm",
+			command:     "npm",
+			wantPresets: []string{"npm"},
+			wantErr:     false,
+		},
+		{
+			name:        "regex pattern match npx",
+			command:     "npx",
+			wantPresets: []string{"npm"},
+			wantErr:     false,
+		},
+		{
+			name:        "regex pattern match yarn",
+			command:     "/usr/local/bin/yarn",
+			wantPresets: []string{"npm"},
+			wantErr:     false,
+		},
+		{
+			name:        "both exact and pattern match",
+			command:     "python",
+			wantPresets: []string{"python"},
+			wantErr:     false,
+		},
+		{
+			name:        "pattern match python3",
+			command:     "python3",
+			wantPresets: []string{"python"},
+			wantErr:     false,
+		},
+		{
+			name:        "no match",
+			command:     "ls",
+			wantPresets: []string{},
+			wantErr:     false,
+		},
+		{
+			name:        "no match with path",
+			command:     "/bin/ls",
+			wantPresets: []string{},
+			wantErr:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			presets, err := config.GetAutoPresets(tt.command)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAutoPresets() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if len(presets) != len(tt.wantPresets) {
+					t.Errorf(
+						"GetAutoPresets() returned %d presets, want %d",
+						len(presets),
+						len(tt.wantPresets),
+					)
+					return
+				}
+
+				for i, got := range presets {
+					if got != tt.wantPresets[i] {
+						t.Errorf(
+							"GetAutoPresets() preset[%d] = %v, want %v",
+							i,
+							got,
+							tt.wantPresets[i],
+						)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestGetAutoPresetsInvalidRegex(t *testing.T) {
+	config := &Config{
+		AutoPresets: []AutoPresetRule{
+			{
+				CommandPattern: "[invalid regex",
+				Presets:        []string{"test"},
+			},
+		},
+	}
+
+	_, err := config.GetAutoPresets("test")
+	if err == nil {
+		t.Error("expected error for invalid regex pattern")
+	}
+}
+
+func TestLoadConfigWithAutoPresets(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+	content := `presets:
+  claude-code:
+    allow:
+      - "/tmp"
+  npm:
+    allow:
+      - "~/.npm"
+
+auto-presets:
+  - command: claude
+    presets:
+      - claude-code
+  - command-pattern: ^(npm|npx)$
+    presets:
+      - npm`
+	os.WriteFile(configPath, []byte(content), 0o644)
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	// Check presets loaded correctly
+	if len(config.Presets) != 2 {
+		t.Errorf("expected 2 presets, got %d", len(config.Presets))
+	}
+
+	// Check auto-presets loaded correctly
+	if len(config.AutoPresets) != 2 {
+		t.Errorf("expected 2 auto-preset rules, got %d", len(config.AutoPresets))
+	}
+
+	// Check first auto-preset rule
+	if config.AutoPresets[0].Command != "claude" {
+		t.Errorf(
+			"expected first rule command to be 'claude', got %s",
+			config.AutoPresets[0].Command,
+		)
+	}
+	if len(config.AutoPresets[0].Presets) != 1 ||
+		config.AutoPresets[0].Presets[0] != "claude-code" {
+		t.Errorf("unexpected presets for first rule: %v", config.AutoPresets[0].Presets)
+	}
+
+	// Check second auto-preset rule
+	if config.AutoPresets[1].CommandPattern != "^(npm|npx)$" {
+		t.Errorf(
+			"expected second rule pattern to be '^(npm|npx)$', got %s",
+			config.AutoPresets[1].CommandPattern,
+		)
+	}
+}

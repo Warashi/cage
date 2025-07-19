@@ -163,6 +163,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Auto-detect presets and merge with command-line presets
+	if len(config.AutoPresets) > 0 {
+		autoPresets, err := config.GetAutoPresets(args[0])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cage: error detecting auto-presets: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Merge auto-detected presets with command-line presets
+		// Command-line presets come first to maintain priority
+		flags.presets = append(flags.presets, autoPresets...)
+	}
+
 	// Merge preset paths with command-line paths
 	allowedPaths := flags.allowPaths
 	allowKeychain := flags.allowKeychain
