@@ -338,3 +338,118 @@ func TestPresetOrderPreservation(t *testing.T) {
 		t.Errorf("path order incorrect.\nGot:  %v\nWant: %v", uniquePaths, expectedOrder)
 	}
 }
+
+func TestAutoPresetsWithCommandLinePresets(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+
+	// Create test config with presets and auto-presets
+	content := `presets:
+  git-preset:
+    allow:
+      - "/usr/bin/git"
+      - "$HOME/.gitconfig"
+  extra-preset:
+    allow:
+      - "/opt/tools"
+      - "/var/cache"
+auto-presets:
+  - command: git
+    presets:
+      - git-preset`
+	os.WriteFile(configPath, []byte(content), 0o644)
+
+	// Load config
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	// Simulate having command-line presets already set
+	flags := flags{
+		presets:    []string{"extra-preset"},
+		allowPaths: []string{"/custom/path"},
+	}
+
+	// Simulate auto-preset detection (normally done in main())
+	autoPresets, err := config.GetAutoPresets("git")
+	if err != nil {
+		t.Fatalf("GetAutoPresets() error = %v", err)
+	}
+
+	// Merge auto-detected presets with command-line presets
+	// Command-line presets come first to maintain priority
+	flags.presets = append(flags.presets, autoPresets...)
+
+	// Process all presets
+	pathSet := make(map[string]struct{})
+	var uniquePaths []string
+
+	for _, presetName := range flags.presets {
+		preset, ok := config.GetPreset(presetName)
+		if !ok {
+			t.Fatalf("preset '%s' not found", presetName)
+		}
+
+		processedPreset, err := preset.ProcessPreset()
+		if err != nil {
+			t.Fatalf("error processing preset '%s': %v", presetName, err)
+		}
+
+		for _, path := range processedPreset.Allow {
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				absPath = path
+			}
+			if _, exists := pathSet[absPath]; !exists {
+				pathSet[absPath] = struct{}{}
+				uniquePaths = append(uniquePaths, path)
+			}
+		}
+	}
+
+	// Add command-line paths
+	for _, path := range flags.allowPaths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			absPath = path
+		}
+		if _, exists := pathSet[absPath]; !exists {
+			pathSet[absPath] = struct{}{}
+			uniquePaths = append(uniquePaths, path)
+		}
+	}
+
+	// Verify we have paths from both command-line preset and auto-preset
+	expectedPaths := map[string]bool{
+		"/opt/tools":   false,
+		"/var/cache":   false,
+		"/usr/bin/git": false,
+		"/custom/path": false,
+	}
+
+	gitconfig := os.ExpandEnv("$HOME/.gitconfig")
+	expectedPaths[gitconfig] = false
+
+	for _, path := range uniquePaths {
+		if _, ok := expectedPaths[path]; ok {
+			expectedPaths[path] = true
+		}
+	}
+
+	for path, found := range expectedPaths {
+		if !found {
+			t.Errorf("expected path %s not found in unique paths", path)
+		}
+	}
+
+	// Verify order: command-line preset paths should come before auto-preset paths
+	if len(uniquePaths) < 4 {
+		t.Fatalf("expected at least 4 paths, got %d", len(uniquePaths))
+	}
+
+	// First two should be from extra-preset (command-line preset)
+	if uniquePaths[0] != "/opt/tools" || uniquePaths[1] != "/var/cache" {
+		t.Errorf("command-line preset paths should come first, got: %v", uniquePaths[:2])
+	}
+}
