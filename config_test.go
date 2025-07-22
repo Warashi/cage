@@ -3,7 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/goccy/go-yaml"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -589,5 +592,240 @@ auto-presets:
 			"expected second rule pattern to be '^(npm|npx)$', got %s",
 			config.AutoPresets[1].CommandPattern,
 		)
+	}
+}
+
+func TestAllowPathUnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		want     AllowPath
+		wantErr  bool
+		errMatch string
+	}{
+		{
+			name: "string format",
+			yaml: `"/tmp/test"`,
+			want: AllowPath{
+				Path:        "/tmp/test",
+				EvalSymLink: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "object format with eval-symlink false",
+			yaml: `path: "/tmp/test"
+eval-symlink: false`,
+			want: AllowPath{
+				Path:        "/tmp/test",
+				EvalSymLink: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "object format with eval-symlink true",
+			yaml: `path: "/tmp/test"
+eval-symlink: true`,
+			want: AllowPath{
+				Path:        "/tmp/test",
+				EvalSymLink: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "object format without eval-symlink",
+			yaml: `path: "/tmp/test"`,
+			want: AllowPath{
+				Path:        "/tmp/test",
+				EvalSymLink: false,
+			},
+			wantErr: false,
+		},
+		{
+			name:     "invalid type - number",
+			yaml:     `123`,
+			wantErr:  true,
+			errMatch: "unsupported type",
+		},
+		{
+			name:     "invalid type - array",
+			yaml:     `["/tmp", "/var"]`,
+			wantErr:  true,
+			errMatch: "unsupported type",
+		},
+		{
+			name:     "invalid yaml",
+			yaml:     `{path: "/tmp", eval-symlink: [invalid}`,
+			wantErr:  true,
+			errMatch: "',' or ']' must be specified",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ap AllowPath
+			err := yaml.Unmarshal([]byte(tt.yaml), &ap)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UnmarshalYAML() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && tt.errMatch != "" {
+				if !strings.Contains(err.Error(), tt.errMatch) {
+					t.Errorf(
+						"UnmarshalYAML() error = %v, want error containing %q",
+						err,
+						tt.errMatch,
+					)
+				}
+				return
+			}
+
+			if !tt.wantErr {
+				if ap.Path != tt.want.Path {
+					t.Errorf("UnmarshalYAML() Path = %v, want %v", ap.Path, tt.want.Path)
+				}
+				if ap.EvalSymLink != tt.want.EvalSymLink {
+					t.Errorf(
+						"UnmarshalYAML() EvalSymLink = %v, want %v",
+						ap.EvalSymLink,
+						tt.want.EvalSymLink,
+					)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadConfigWithAllowPathFormats(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+	content := `presets:
+  test:
+    allow:
+      - "/tmp"
+      - path: "/var"
+        eval-symlink: false
+      - path: "/home/user"
+        eval-symlink: true`
+	os.WriteFile(configPath, []byte(content), 0o644)
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	preset, ok := config.GetPreset("test")
+	if !ok {
+		t.Fatal("preset 'test' not found")
+	}
+
+	if len(preset.Allow) != 3 {
+		t.Fatalf("expected 3 allow paths, got %d", len(preset.Allow))
+	}
+
+	// Check first path (string format)
+	if preset.Allow[0].Path != "/tmp" || preset.Allow[0].EvalSymLink != false {
+		t.Errorf("first path = %+v, want {Path: /tmp, EvalSymLink: false}", preset.Allow[0])
+	}
+
+	// Check second path (object format, eval-symlink: false)
+	if preset.Allow[1].Path != "/var" || preset.Allow[1].EvalSymLink != false {
+		t.Errorf("second path = %+v, want {Path: /var, EvalSymLink: false}", preset.Allow[1])
+	}
+
+	// Check third path (object format, eval-symlink: true)
+	if preset.Allow[2].Path != "/home/user" || preset.Allow[2].EvalSymLink != true {
+		t.Errorf("third path = %+v, want {Path: /home/user, EvalSymLink: true}", preset.Allow[2])
+	}
+}
+
+func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
+	// Create a temporary directory with a symlink
+	tmpDir := t.TempDir()
+	targetDir := filepath.Join(tmpDir, "target")
+	symlinkPath := filepath.Join(tmpDir, "symlink")
+
+	// Create target directory
+	if err := os.Mkdir(targetDir, 0o755); err != nil {
+		t.Fatalf("failed to create target directory: %v", err)
+	}
+
+	// Create symlink
+	if err := os.Symlink(targetDir, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	// Resolve the expected paths fully (to handle macOS /var -> /private/var)
+	resolvedTargetDir, _ := filepath.EvalSymlinks(targetDir)
+
+	tests := []struct {
+		name      string
+		preset    Preset
+		wantPaths []string
+	}{
+		{
+			name: "symlink evaluation disabled",
+			preset: Preset{
+				Allow: []AllowPath{
+					{Path: symlinkPath, EvalSymLink: false},
+				},
+			},
+			wantPaths: []string{symlinkPath},
+		},
+		{
+			name: "symlink evaluation enabled",
+			preset: Preset{
+				Allow: []AllowPath{
+					{Path: symlinkPath, EvalSymLink: true},
+				},
+			},
+			wantPaths: []string{resolvedTargetDir},
+		},
+		{
+			name: "mix of symlink and regular paths",
+			preset: Preset{
+				Allow: []AllowPath{
+					{Path: "/tmp", EvalSymLink: false},
+					{Path: symlinkPath, EvalSymLink: true},
+					{Path: "/var", EvalSymLink: false},
+				},
+			},
+			wantPaths: []string{"/tmp", resolvedTargetDir, "/var"},
+		},
+		{
+			name: "non-existent symlink falls back to original path",
+			preset: Preset{
+				Allow: []AllowPath{
+					{Path: "/non/existent/symlink", EvalSymLink: true},
+				},
+			},
+			wantPaths: []string{"/non/existent/symlink"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			processed, err := tt.preset.ProcessPreset()
+			if err != nil {
+				t.Fatalf("ProcessPreset() error = %v", err)
+			}
+
+			if len(processed.Allow) != len(tt.wantPaths) {
+				t.Errorf(
+					"ProcessPreset() returned %d paths, want %d",
+					len(processed.Allow),
+					len(tt.wantPaths),
+				)
+				return
+			}
+
+			for i, got := range processed.Allow {
+				if got.Path != tt.wantPaths[i] {
+					t.Errorf("ProcessPreset() path[%d] = %v, want %v", i, got.Path, tt.wantPaths[i])
+				}
+			}
+		})
 	}
 }
