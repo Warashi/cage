@@ -202,14 +202,14 @@ func main() {
 
 		// Add preset paths, checking for duplicates
 		for _, path := range processedPreset.Allow {
-			absPath, err := filepath.Abs(path)
+			absPath, err := filepath.Abs(path.Path)
 			if err != nil {
 				// If we can't get absolute path, use original path
-				absPath = path
+				absPath = path.Path
 			}
 			if _, exists := pathSet[absPath]; !exists {
 				pathSet[absPath] = struct{}{}
-				uniquePaths = append(uniquePaths, path)
+				uniquePaths = append(uniquePaths, absPath)
 			}
 		}
 

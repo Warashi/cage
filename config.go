@@ -18,15 +18,45 @@ type Config struct {
 }
 
 type Preset struct {
-	Allow         []string `yaml:"allow"`
-	AllowKeychain bool     `yaml:"allow-keychain"`
-	AllowGit      bool     `yaml:"allow-git"`
+	Allow         []AllowPath `yaml:"allow"`
+	AllowKeychain bool        `yaml:"allow-keychain"`
+	AllowGit      bool        `yaml:"allow-git"`
+}
+
+type AllowPath struct {
+	Path        string `yaml:"path"`
+	EvalSymLink bool   `yaml:"eval-symlink,omitempty"`
 }
 
 type AutoPresetRule struct {
 	Command        string   `yaml:"command,omitempty"`
 	CommandPattern string   `yaml:"command-pattern,omitempty"`
 	Presets        []string `yaml:"presets"`
+}
+
+func (p *AllowPath) UnmarshalYAML(b []byte) error {
+	var a any
+	if err := yaml.Unmarshal(b, &a); err != nil {
+		return fmt.Errorf("unmarshal AllowPath: %w", err)
+	}
+	switch v := a.(type) {
+	case string:
+		*p = AllowPath{
+			Path:        v,
+			EvalSymLink: false,
+		}
+		return nil
+	case map[string]any:
+		type alias AllowPath
+		var ap alias
+		if err := yaml.Unmarshal(b, &ap); err != nil {
+			return fmt.Errorf("unmarshal AllowPath map: %w", err)
+		}
+		*p = (AllowPath)(ap)
+		return nil
+	default:
+		return fmt.Errorf("unmarshal AllowPath: unsupported type %T", a)
+	}
 }
 
 func userConfigDir() (string, error) {
@@ -157,13 +187,22 @@ func (p *Preset) ProcessPreset() (*Preset, error) {
 	processed := &Preset{
 		AllowKeychain: p.AllowKeychain,
 		AllowGit:      p.AllowGit,
-		Allow:         make([]string, 0, len(p.Allow)),
+		Allow:         make([]AllowPath, 0, len(p.Allow)),
 	}
 
 	// Expand environment variables in paths
 	for _, path := range p.Allow {
-		expanded := expandEnvOnly(path)
-		processed.Allow = append(processed.Allow, expanded)
+		expanded := os.ExpandEnv(path.Path)
+		if path.EvalSymLink {
+			// Resolve symlinks if EvalSymLink is true
+			resolvedPath, err := filepath.EvalSymlinks(expanded)
+			if err != nil {
+				resolvedPath = expanded // Fallback to original path if eval fails
+			}
+			expanded = resolvedPath
+		}
+
+		processed.Allow = append(processed.Allow, AllowPath{Path: expanded})
 	}
 
 	// Add git common directory if AllowGit is enabled
@@ -173,7 +212,7 @@ func (p *Preset) ProcessPreset() (*Preset, error) {
 			// Log the error but don't fail - the directory might not be a git repo
 			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 		} else {
-			processed.Allow = append(processed.Allow, gitCommonDir)
+			processed.Allow = append(processed.Allow, AllowPath{Path: gitCommonDir})
 		}
 	}
 

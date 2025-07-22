@@ -91,7 +91,7 @@ func TestConfigGetPreset(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
 			"test": {
-				Allow: []string{"/tmp", "/var"},
+				Allow: []AllowPath{{Path: "/tmp"}, {Path: "/var"}},
 			},
 		},
 	}
@@ -132,9 +132,9 @@ func TestConfigGetPreset(t *testing.T) {
 func TestConfigListPresets(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
-			"npm":   {Allow: []string{"~/.npm"}},
-			"cargo": {Allow: []string{"~/.cargo"}},
-			"pip":   {Allow: []string{"~/.pip"}},
+			"npm":   {Allow: []AllowPath{{Path: "~/.npm"}}},
+			"cargo": {Allow: []AllowPath{{Path: "~/.cargo"}}},
+			"pip":   {Allow: []AllowPath{{Path: "~/.pip"}}},
 		},
 	}
 
@@ -225,10 +225,10 @@ func TestProcessPreset(t *testing.T) {
 		{
 			name: "preset with environment variables",
 			preset: Preset{
-				Allow: []string{
-					"$HOME/.npm",
-					"${TEST_DIR}/data",
-					"/tmp",
+				Allow: []AllowPath{
+					{Path: "$HOME/.npm"},
+					{Path: "${TEST_DIR}/data"},
+					{Path: "/tmp"},
 				},
 				AllowKeychain: true,
 			},
@@ -242,8 +242,8 @@ func TestProcessPreset(t *testing.T) {
 		{
 			name: "preset with command substitution not expanded",
 			preset: Preset{
-				Allow: []string{
-					"$(echo /dynamic/path)",
+				Allow: []AllowPath{
+					{Path: "$(echo /dynamic/path)"},
 				},
 			},
 			wantPaths: []string{
@@ -272,8 +272,13 @@ func TestProcessPreset(t *testing.T) {
 				}
 
 				for i, got := range processed.Allow {
-					if got != tt.wantPaths[i] {
-						t.Errorf("ProcessPreset() path[%d] = %v, want %v", i, got, tt.wantPaths[i])
+					if got.Path != tt.wantPaths[i] {
+						t.Errorf(
+							"ProcessPreset() path[%d] = %v, want %v",
+							i,
+							got.Path,
+							tt.wantPaths[i],
+						)
 					}
 				}
 
@@ -343,9 +348,9 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 	// This test will only check the AllowGit flag is preserved
 	// We can't easily test the git directory addition without a real git repo
 	preset := Preset{
-		Allow: []string{
-			"$HOME/.npm",
-			"/tmp",
+		Allow: []AllowPath{
+			{Path: "$HOME/.npm"},
+			{Path: "/tmp"},
 		},
 		AllowKeychain: true,
 		AllowGit:      true,
@@ -387,8 +392,8 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 	}
 
 	for i, expected := range expectedPaths {
-		if processed.Allow[i] != expected {
-			t.Errorf("ProcessPreset() path[%d] = %v, want %v", i, processed.Allow[i], expected)
+		if processed.Allow[i].Path != expected {
+			t.Errorf("ProcessPreset() path[%d] = %v, want %v", i, processed.Allow[i].Path, expected)
 		}
 	}
 }
@@ -396,9 +401,9 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 func TestGetAutoPresets(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
-			"claude-code": {Allow: []string{"/tmp"}},
-			"npm":         {Allow: []string{"~/.npm"}},
-			"python":      {Allow: []string{"~/.python"}},
+			"claude-code": {Allow: []AllowPath{{Path: "/tmp"}}},
+			"npm":         {Allow: []AllowPath{{Path: "~/.npm"}}},
+			"python":      {Allow: []AllowPath{{Path: "~/.python"}}},
 		},
 		AutoPresets: []AutoPresetRule{
 			{
