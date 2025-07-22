@@ -24,8 +24,8 @@ type Preset struct {
 }
 
 type AllowPath struct {
-	Path        string `yaml:"path"`
-	EvalSymLink bool   `yaml:"eval-symlink,omitempty"`
+	Path         string `yaml:"path"`
+	EvalSymLinks bool   `yaml:"eval-symlinks,omitempty"`
 }
 
 type AutoPresetRule struct {
@@ -42,8 +42,8 @@ func (p *AllowPath) UnmarshalYAML(b []byte) error {
 	switch v := a.(type) {
 	case string:
 		*p = AllowPath{
-			Path:        v,
-			EvalSymLink: false,
+			Path:         v,
+			EvalSymLinks: false,
 		}
 		return nil
 	case map[string]any:
@@ -193,8 +193,8 @@ func (p *Preset) ProcessPreset() (*Preset, error) {
 	// Expand environment variables in paths
 	for _, path := range p.Allow {
 		expanded := os.ExpandEnv(path.Path)
-		if path.EvalSymLink {
-			// Resolve symlinks if EvalSymLink is true
+		if path.EvalSymLinks {
+			// Resolve symlinks if EvalSymLinks is true
 			resolvedPath, err := filepath.EvalSymlinks(expanded)
 			if err != nil {
 				resolvedPath = expanded // Fallback to original path if eval fails

@@ -607,37 +607,37 @@ func TestAllowPathUnmarshalYAML(t *testing.T) {
 			name: "string format",
 			yaml: `"/tmp/test"`,
 			want: AllowPath{
-				Path:        "/tmp/test",
-				EvalSymLink: false,
+				Path:         "/tmp/test",
+				EvalSymLinks: false,
 			},
 			wantErr: false,
 		},
 		{
-			name: "object format with eval-symlink false",
+			name: "object format with eval-symlinks false",
 			yaml: `path: "/tmp/test"
-eval-symlink: false`,
+eval-symlinks: false`,
 			want: AllowPath{
-				Path:        "/tmp/test",
-				EvalSymLink: false,
+				Path:         "/tmp/test",
+				EvalSymLinks: false,
 			},
 			wantErr: false,
 		},
 		{
-			name: "object format with eval-symlink true",
+			name: "object format with eval-symlinks true",
 			yaml: `path: "/tmp/test"
-eval-symlink: true`,
+eval-symlinks: true`,
 			want: AllowPath{
-				Path:        "/tmp/test",
-				EvalSymLink: true,
+				Path:         "/tmp/test",
+				EvalSymLinks: true,
 			},
 			wantErr: false,
 		},
 		{
-			name: "object format without eval-symlink",
+			name: "object format without eval-symlinks",
 			yaml: `path: "/tmp/test"`,
 			want: AllowPath{
-				Path:        "/tmp/test",
-				EvalSymLink: false,
+				Path:         "/tmp/test",
+				EvalSymLinks: false,
 			},
 			wantErr: false,
 		},
@@ -655,7 +655,7 @@ eval-symlink: true`,
 		},
 		{
 			name:     "invalid yaml",
-			yaml:     `{path: "/tmp", eval-symlink: [invalid}`,
+			yaml:     `{path: "/tmp", eval-symlinks: [invalid}`,
 			wantErr:  true,
 			errMatch: "',' or ']' must be specified",
 		},
@@ -686,11 +686,11 @@ eval-symlink: true`,
 				if ap.Path != tt.want.Path {
 					t.Errorf("UnmarshalYAML() Path = %v, want %v", ap.Path, tt.want.Path)
 				}
-				if ap.EvalSymLink != tt.want.EvalSymLink {
+				if ap.EvalSymLinks != tt.want.EvalSymLinks {
 					t.Errorf(
-						"UnmarshalYAML() EvalSymLink = %v, want %v",
-						ap.EvalSymLink,
-						tt.want.EvalSymLink,
+						"UnmarshalYAML() EvalSymLinks = %v, want %v",
+						ap.EvalSymLinks,
+						tt.want.EvalSymLinks,
 					)
 				}
 			}
@@ -706,9 +706,9 @@ func TestLoadConfigWithAllowPathFormats(t *testing.T) {
     allow:
       - "/tmp"
       - path: "/var"
-        eval-symlink: false
+        eval-symlinks: false
       - path: "/home/user"
-        eval-symlink: true`
+        eval-symlinks: true`
 	os.WriteFile(configPath, []byte(content), 0o644)
 
 	config, err := loadConfig(configPath)
@@ -726,18 +726,18 @@ func TestLoadConfigWithAllowPathFormats(t *testing.T) {
 	}
 
 	// Check first path (string format)
-	if preset.Allow[0].Path != "/tmp" || preset.Allow[0].EvalSymLink != false {
-		t.Errorf("first path = %+v, want {Path: /tmp, EvalSymLink: false}", preset.Allow[0])
+	if preset.Allow[0].Path != "/tmp" || preset.Allow[0].EvalSymLinks != false {
+		t.Errorf("first path = %+v, want {Path: /tmp, EvalSymLinks: false}", preset.Allow[0])
 	}
 
-	// Check second path (object format, eval-symlink: false)
-	if preset.Allow[1].Path != "/var" || preset.Allow[1].EvalSymLink != false {
-		t.Errorf("second path = %+v, want {Path: /var, EvalSymLink: false}", preset.Allow[1])
+	// Check second path (object format, eval-symlinks: false)
+	if preset.Allow[1].Path != "/var" || preset.Allow[1].EvalSymLinks != false {
+		t.Errorf("second path = %+v, want {Path: /var, EvalSymLinks: false}", preset.Allow[1])
 	}
 
-	// Check third path (object format, eval-symlink: true)
-	if preset.Allow[2].Path != "/home/user" || preset.Allow[2].EvalSymLink != true {
-		t.Errorf("third path = %+v, want {Path: /home/user, EvalSymLink: true}", preset.Allow[2])
+	// Check third path (object format, eval-symlinks: true)
+	if preset.Allow[2].Path != "/home/user" || preset.Allow[2].EvalSymLinks != true {
+		t.Errorf("third path = %+v, want {Path: /home/user, EvalSymLinks: true}", preset.Allow[2])
 	}
 }
 
@@ -769,7 +769,7 @@ func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 			name: "symlink evaluation disabled",
 			preset: Preset{
 				Allow: []AllowPath{
-					{Path: symlinkPath, EvalSymLink: false},
+					{Path: symlinkPath, EvalSymLinks: false},
 				},
 			},
 			wantPaths: []string{symlinkPath},
@@ -778,7 +778,7 @@ func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 			name: "symlink evaluation enabled",
 			preset: Preset{
 				Allow: []AllowPath{
-					{Path: symlinkPath, EvalSymLink: true},
+					{Path: symlinkPath, EvalSymLinks: true},
 				},
 			},
 			wantPaths: []string{resolvedTargetDir},
@@ -787,9 +787,9 @@ func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 			name: "mix of symlink and regular paths",
 			preset: Preset{
 				Allow: []AllowPath{
-					{Path: "/tmp", EvalSymLink: false},
-					{Path: symlinkPath, EvalSymLink: true},
-					{Path: "/var", EvalSymLink: false},
+					{Path: "/tmp", EvalSymLinks: false},
+					{Path: symlinkPath, EvalSymLinks: true},
+					{Path: "/var", EvalSymLinks: false},
 				},
 			},
 			wantPaths: []string{"/tmp", resolvedTargetDir, "/var"},
@@ -798,7 +798,7 @@ func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 			name: "non-existent symlink falls back to original path",
 			preset: Preset{
 				Allow: []AllowPath{
-					{Path: "/non/existent/symlink", EvalSymLink: true},
+					{Path: "/non/existent/symlink", EvalSymLinks: true},
 				},
 			},
 			wantPaths: []string{"/non/existent/symlink"},
