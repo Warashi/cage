@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.8](https://github.com/Warashi/cage/compare/v0.1.7...v0.1.8) - 2025-07-22
+- feat: eval-symlinks option for presets by @Warashi in https://github.com/Warashi/cage/pull/29
+
 ## [v0.1.7](https://github.com/Warashi/cage/compare/v0.1.6...v0.1.7) - 2025-07-19
 - feat: add auto-presets config to apply presets automatically based on command name by @Warashi in https://github.com/Warashi/cage/pull/27
 
