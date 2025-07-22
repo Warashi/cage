@@ -3,7 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/goccy/go-yaml"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -91,7 +94,7 @@ func TestConfigGetPreset(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
 			"test": {
-				Allow: []string{"/tmp", "/var"},
+				Allow: []AllowPath{{Path: "/tmp"}, {Path: "/var"}},
 			},
 		},
 	}
@@ -132,9 +135,9 @@ func TestConfigGetPreset(t *testing.T) {
 func TestConfigListPresets(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
-			"npm":   {Allow: []string{"~/.npm"}},
-			"cargo": {Allow: []string{"~/.cargo"}},
-			"pip":   {Allow: []string{"~/.pip"}},
+			"npm":   {Allow: []AllowPath{{Path: "~/.npm"}}},
+			"cargo": {Allow: []AllowPath{{Path: "~/.cargo"}}},
+			"pip":   {Allow: []AllowPath{{Path: "~/.pip"}}},
 		},
 	}
 
@@ -225,10 +228,10 @@ func TestProcessPreset(t *testing.T) {
 		{
 			name: "preset with environment variables",
 			preset: Preset{
-				Allow: []string{
-					"$HOME/.npm",
-					"${TEST_DIR}/data",
-					"/tmp",
+				Allow: []AllowPath{
+					{Path: "$HOME/.npm"},
+					{Path: "${TEST_DIR}/data"},
+					{Path: "/tmp"},
 				},
 				AllowKeychain: true,
 			},
@@ -242,8 +245,8 @@ func TestProcessPreset(t *testing.T) {
 		{
 			name: "preset with command substitution not expanded",
 			preset: Preset{
-				Allow: []string{
-					"$(echo /dynamic/path)",
+				Allow: []AllowPath{
+					{Path: "$(echo /dynamic/path)"},
 				},
 			},
 			wantPaths: []string{
@@ -272,8 +275,13 @@ func TestProcessPreset(t *testing.T) {
 				}
 
 				for i, got := range processed.Allow {
-					if got != tt.wantPaths[i] {
-						t.Errorf("ProcessPreset() path[%d] = %v, want %v", i, got, tt.wantPaths[i])
+					if got.Path != tt.wantPaths[i] {
+						t.Errorf(
+							"ProcessPreset() path[%d] = %v, want %v",
+							i,
+							got.Path,
+							tt.wantPaths[i],
+						)
 					}
 				}
 
@@ -343,9 +351,9 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 	// This test will only check the AllowGit flag is preserved
 	// We can't easily test the git directory addition without a real git repo
 	preset := Preset{
-		Allow: []string{
-			"$HOME/.npm",
-			"/tmp",
+		Allow: []AllowPath{
+			{Path: "$HOME/.npm"},
+			{Path: "/tmp"},
 		},
 		AllowKeychain: true,
 		AllowGit:      true,
@@ -387,8 +395,8 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 	}
 
 	for i, expected := range expectedPaths {
-		if processed.Allow[i] != expected {
-			t.Errorf("ProcessPreset() path[%d] = %v, want %v", i, processed.Allow[i], expected)
+		if processed.Allow[i].Path != expected {
+			t.Errorf("ProcessPreset() path[%d] = %v, want %v", i, processed.Allow[i].Path, expected)
 		}
 	}
 }
@@ -396,9 +404,9 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 func TestGetAutoPresets(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
-			"claude-code": {Allow: []string{"/tmp"}},
-			"npm":         {Allow: []string{"~/.npm"}},
-			"python":      {Allow: []string{"~/.python"}},
+			"claude-code": {Allow: []AllowPath{{Path: "/tmp"}}},
+			"npm":         {Allow: []AllowPath{{Path: "~/.npm"}}},
+			"python":      {Allow: []AllowPath{{Path: "~/.python"}}},
 		},
 		AutoPresets: []AutoPresetRule{
 			{
@@ -584,5 +592,240 @@ auto-presets:
 			"expected second rule pattern to be '^(npm|npx)$', got %s",
 			config.AutoPresets[1].CommandPattern,
 		)
+	}
+}
+
+func TestAllowPathUnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		want     AllowPath
+		wantErr  bool
+		errMatch string
+	}{
+		{
+			name: "string format",
+			yaml: `"/tmp/test"`,
+			want: AllowPath{
+				Path:         "/tmp/test",
+				EvalSymLinks: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "object format with eval-symlinks false",
+			yaml: `path: "/tmp/test"
+eval-symlinks: false`,
+			want: AllowPath{
+				Path:         "/tmp/test",
+				EvalSymLinks: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "object format with eval-symlinks true",
+			yaml: `path: "/tmp/test"
+eval-symlinks: true`,
+			want: AllowPath{
+				Path:         "/tmp/test",
+				EvalSymLinks: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "object format without eval-symlinks",
+			yaml: `path: "/tmp/test"`,
+			want: AllowPath{
+				Path:         "/tmp/test",
+				EvalSymLinks: false,
+			},
+			wantErr: false,
+		},
+		{
+			name:     "invalid type - number",
+			yaml:     `123`,
+			wantErr:  true,
+			errMatch: "unsupported type",
+		},
+		{
+			name:     "invalid type - array",
+			yaml:     `["/tmp", "/var"]`,
+			wantErr:  true,
+			errMatch: "unsupported type",
+		},
+		{
+			name:     "invalid yaml",
+			yaml:     `{path: "/tmp", eval-symlinks: [invalid}`,
+			wantErr:  true,
+			errMatch: "',' or ']' must be specified",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ap AllowPath
+			err := yaml.Unmarshal([]byte(tt.yaml), &ap)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UnmarshalYAML() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && tt.errMatch != "" {
+				if !strings.Contains(err.Error(), tt.errMatch) {
+					t.Errorf(
+						"UnmarshalYAML() error = %v, want error containing %q",
+						err,
+						tt.errMatch,
+					)
+				}
+				return
+			}
+
+			if !tt.wantErr {
+				if ap.Path != tt.want.Path {
+					t.Errorf("UnmarshalYAML() Path = %v, want %v", ap.Path, tt.want.Path)
+				}
+				if ap.EvalSymLinks != tt.want.EvalSymLinks {
+					t.Errorf(
+						"UnmarshalYAML() EvalSymLinks = %v, want %v",
+						ap.EvalSymLinks,
+						tt.want.EvalSymLinks,
+					)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadConfigWithAllowPathFormats(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+	content := `presets:
+  test:
+    allow:
+      - "/tmp"
+      - path: "/var"
+        eval-symlinks: false
+      - path: "/home/user"
+        eval-symlinks: true`
+	os.WriteFile(configPath, []byte(content), 0o644)
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	preset, ok := config.GetPreset("test")
+	if !ok {
+		t.Fatal("preset 'test' not found")
+	}
+
+	if len(preset.Allow) != 3 {
+		t.Fatalf("expected 3 allow paths, got %d", len(preset.Allow))
+	}
+
+	// Check first path (string format)
+	if preset.Allow[0].Path != "/tmp" || preset.Allow[0].EvalSymLinks != false {
+		t.Errorf("first path = %+v, want {Path: /tmp, EvalSymLinks: false}", preset.Allow[0])
+	}
+
+	// Check second path (object format, eval-symlinks: false)
+	if preset.Allow[1].Path != "/var" || preset.Allow[1].EvalSymLinks != false {
+		t.Errorf("second path = %+v, want {Path: /var, EvalSymLinks: false}", preset.Allow[1])
+	}
+
+	// Check third path (object format, eval-symlinks: true)
+	if preset.Allow[2].Path != "/home/user" || preset.Allow[2].EvalSymLinks != true {
+		t.Errorf("third path = %+v, want {Path: /home/user, EvalSymLinks: true}", preset.Allow[2])
+	}
+}
+
+func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
+	// Create a temporary directory with a symlink
+	tmpDir := t.TempDir()
+	targetDir := filepath.Join(tmpDir, "target")
+	symlinkPath := filepath.Join(tmpDir, "symlink")
+
+	// Create target directory
+	if err := os.Mkdir(targetDir, 0o755); err != nil {
+		t.Fatalf("failed to create target directory: %v", err)
+	}
+
+	// Create symlink
+	if err := os.Symlink(targetDir, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	// Resolve the expected paths fully (to handle macOS /var -> /private/var)
+	resolvedTargetDir, _ := filepath.EvalSymlinks(targetDir)
+
+	tests := []struct {
+		name      string
+		preset    Preset
+		wantPaths []string
+	}{
+		{
+			name: "symlink evaluation disabled",
+			preset: Preset{
+				Allow: []AllowPath{
+					{Path: symlinkPath, EvalSymLinks: false},
+				},
+			},
+			wantPaths: []string{symlinkPath},
+		},
+		{
+			name: "symlink evaluation enabled",
+			preset: Preset{
+				Allow: []AllowPath{
+					{Path: symlinkPath, EvalSymLinks: true},
+				},
+			},
+			wantPaths: []string{resolvedTargetDir},
+		},
+		{
+			name: "mix of symlink and regular paths",
+			preset: Preset{
+				Allow: []AllowPath{
+					{Path: "/tmp", EvalSymLinks: false},
+					{Path: symlinkPath, EvalSymLinks: true},
+					{Path: "/var", EvalSymLinks: false},
+				},
+			},
+			wantPaths: []string{"/tmp", resolvedTargetDir, "/var"},
+		},
+		{
+			name: "non-existent symlink falls back to original path",
+			preset: Preset{
+				Allow: []AllowPath{
+					{Path: "/non/existent/symlink", EvalSymLinks: true},
+				},
+			},
+			wantPaths: []string{"/non/existent/symlink"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			processed, err := tt.preset.ProcessPreset()
+			if err != nil {
+				t.Fatalf("ProcessPreset() error = %v", err)
+			}
+
+			if len(processed.Allow) != len(tt.wantPaths) {
+				t.Errorf(
+					"ProcessPreset() returned %d paths, want %d",
+					len(processed.Allow),
+					len(tt.wantPaths),
+				)
+				return
+			}
+
+			for i, got := range processed.Allow {
+				if got.Path != tt.wantPaths[i] {
+					t.Errorf("ProcessPreset() path[%d] = %v, want %v", i, got.Path, tt.wantPaths[i])
+				}
+			}
+		})
 	}
 }

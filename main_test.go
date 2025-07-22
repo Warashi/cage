@@ -61,13 +61,13 @@ func TestMultiplePresetsWithDuplicatePaths(t *testing.T) {
 		}
 
 		for _, path := range processedPreset.Allow {
-			absPath, err := filepath.Abs(path)
+			absPath, err := filepath.Abs(path.Path)
 			if err != nil {
-				absPath = path
+				absPath = path.Path
 			}
 			if _, exists := pathSet[absPath]; !exists {
 				pathSet[absPath] = struct{}{}
-				uniquePaths = append(uniquePaths, path)
+				uniquePaths = append(uniquePaths, path.Path)
 			}
 		}
 	}
@@ -166,13 +166,13 @@ func TestPresetPathsWithRelativeAndAbsolute(t *testing.T) {
 		}
 
 		for _, path := range processedPreset.Allow {
-			absPath, err := filepath.Abs(path)
+			absPath, err := filepath.Abs(path.Path)
 			if err != nil {
-				absPath = path
+				absPath = path.Path
 			}
 			if _, exists := pathSet[absPath]; !exists {
 				pathSet[absPath] = struct{}{}
-				uniquePaths = append(uniquePaths, path)
+				uniquePaths = append(uniquePaths, path.Path)
 			}
 		}
 	}
@@ -231,13 +231,13 @@ func TestEnvironmentVariableExpansionDuplicates(t *testing.T) {
 		}
 
 		for _, path := range processedPreset.Allow {
-			absPath, err := filepath.Abs(path)
+			absPath, err := filepath.Abs(path.Path)
 			if err != nil {
-				absPath = path
+				absPath = path.Path
 			}
 			if _, exists := pathSet[absPath]; !exists {
 				pathSet[absPath] = struct{}{}
-				uniquePaths = append(uniquePaths, path)
+				uniquePaths = append(uniquePaths, path.Path)
 			}
 		}
 	}
@@ -309,13 +309,13 @@ func TestPresetOrderPreservation(t *testing.T) {
 		}
 
 		for _, path := range processedPreset.Allow {
-			absPath, err := filepath.Abs(path)
+			absPath, err := filepath.Abs(path.Path)
 			if err != nil {
-				absPath = path
+				absPath = path.Path
 			}
 			if _, exists := pathSet[absPath]; !exists {
 				pathSet[absPath] = struct{}{}
-				uniquePaths = append(uniquePaths, path)
+				uniquePaths = append(uniquePaths, path.Path)
 			}
 		}
 	}
@@ -397,13 +397,13 @@ auto-presets:
 		}
 
 		for _, path := range processedPreset.Allow {
-			absPath, err := filepath.Abs(path)
+			absPath, err := filepath.Abs(path.Path)
 			if err != nil {
-				absPath = path
+				absPath = path.Path
 			}
 			if _, exists := pathSet[absPath]; !exists {
 				pathSet[absPath] = struct{}{}
-				uniquePaths = append(uniquePaths, path)
+				uniquePaths = append(uniquePaths, path.Path)
 			}
 		}
 	}

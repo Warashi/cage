@@ -166,9 +166,45 @@ presets:
 ```
 
 Presets support the following options:
-- `allow`: List of paths to grant write access
+- `allow`: List of paths to grant write access (can be strings or objects with `eval-symlinks` option)
 - `allow-git`: Enable access to git common directory (boolean)
 - `allow-keychain`: Enable macOS keychain access (boolean)
+
+#### Symlink Evaluation in Presets
+
+The `allow` field in presets supports both simple string paths and objects with an `eval-symlinks` option. When `eval-symlinks` is set to `true`, the symlink will be resolved to its target path before granting access.
+
+```yaml
+presets:
+  symlink-aware:
+    allow:
+      # Simple string (default: eval-symlinks = false)
+      - "./direct-path"
+      
+      # Object with eval-symlinks option
+      - path: "/tmp"
+        eval-symlinks: true  # Resolves symlink to actual path
+      
+      # Mixed usage
+      - "$HOME/.cache"
+      - path: "$HOME/.local/share"
+        eval-symlinks: true
+```
+
+This is particularly useful when:
+- Working with tools that create symlinks to actual data directories
+- macOS's `/tmp` is a symlink to `/private/tmp`
+- Using symlinked configuration directories
+- Working with package managers that use symlinks
+
+Example use case for macOS:
+```yaml
+presets:
+  macos-tmp:
+    allow:
+      - path: "/tmp"
+        eval-symlinks: true  # Automatically resolves to /private/tmp
+```
 
 #### Auto-Presets
 
