@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const inCageEnv = "IN_CAGE"
+
 var version string
 
 func Version() string {
@@ -124,6 +126,12 @@ func (a *arrayFlags) Set(value string) error {
 }
 
 func main() {
+	// Indicate that we are running inside a cage
+	if err := os.Setenv(inCageEnv, "1"); err != nil {
+		fmt.Fprintf(os.Stderr, "cage: error setting environment variable %s: %v\n", inCageEnv, err)
+		os.Exit(1)
+	}
+
 	flags, args := parseFlags()
 
 	// Handle version flag
