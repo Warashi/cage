@@ -281,6 +281,26 @@ Cage enforces the following security policy by default:
 | Network Access | ✅ Allowed | ✅ Allowed |
 | Process Creation | ✅ Allowed | ✅ Allowed |
 
+## Environment Variables
+
+### IN_CAGE
+
+When a command is executed inside cage, the `IN_CAGE` environment variable is automatically set to `1`. This allows programs to detect if they are running within the cage sandbox.
+
+```bash
+# Check if running inside cage from a shell script
+if [ "$IN_CAGE" = "1" ]; then
+    echo "Running inside cage sandbox"
+    # Adjust behavior accordingly
+fi
+```
+
+This can be useful for:
+- Adjusting application behavior when running in a restricted environment
+- Providing warnings about limited functionality
+- Debugging sandbox-related issues
+- Conditional logging or telemetry
+
 ## Development
 
 ### Building
