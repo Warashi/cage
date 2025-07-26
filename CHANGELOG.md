@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.9](https://github.com/Warashi/cage/compare/v0.1.8...v0.1.9) - 2025-07-26
+- feat: add IN_CAGE environment variable by @Warashi in https://github.com/Warashi/cage/pull/31
+- docs: add documentation for IN_CAGE environment variable by @Warashi in https://github.com/Warashi/cage/pull/33
+
 ## [v0.1.8](https://github.com/Warashi/cage/compare/v0.1.7...v0.1.8) - 2025-07-22
 - feat: eval-symlinks option for presets by @Warashi in https://github.com/Warashi/cage/pull/29
 
