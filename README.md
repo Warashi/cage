@@ -26,6 +26,11 @@ We doesn't sign the binaries, so you need to use `--no-quarantine` flag to avoid
 brew install --cask Warashi/tap/cage --no-quarantine
 ```
 
+When upgrading Cage, you may need to run:
+```bash
+brew upgrade cage --no-quarantine
+```
+
 ### With `go install`
 ```bash
 go install github.com/Warashi/cage@latest
