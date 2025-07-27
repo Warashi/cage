@@ -306,6 +306,34 @@ This can be useful for:
 - Debugging sandbox-related issues
 - Conditional logging or telemetry
 
+### Homebrew Integration
+
+When using Homebrew and cage together on macOS, you may encounter an issue with the standard Homebrew configuration. The typical Homebrew setup includes the following line in `.zprofile`:
+
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)"
+```
+
+However, when cage executes commands (such as when used with Claude Code), this configuration can cause the following error:
+
+```
+/opt/homebrew/Library/Homebrew/cmd/shellenv.sh: line 18: /bin/ps: Operation not permitted
+```
+
+This occurs because the `shellenv` script attempts to execute `/bin/ps`, which is blocked by the sandbox restrictions.
+To resolve this issue, modify your `.zprofile` to conditionally evaluate `shellenv` only when not running inside cage:
+
+```bash
+if [[ -z $IN_CAGE ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+```
+
+This configuration:
+- Allows normal Homebrew functionality when using your shell directly
+- Prevents the error when commands are executed within cage
+- Works because cage inherits the necessary environment variables from the parent shell, making the `shellenv` evaluation unnecessary
+
 ## Development
 
 ### Building
