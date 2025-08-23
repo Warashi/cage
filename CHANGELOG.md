@@ -1,5 +1,18 @@
 # Changelog
 
+## [v0.1.10](https://github.com/Warashi/cage/compare/v0.1.9...v0.1.10) - 2025-08-23
+- docs: add command docs for upgrading cage by @Warashi in https://github.com/Warashi/cage/pull/34
+- build(deps): bump github/codeql-action from 3.29.2 to 3.29.4 by @dependabot[bot] in https://github.com/Warashi/cage/pull/36
+- docs: add Homebrew integration section to Environment Variables by @yuki-yano in https://github.com/Warashi/cage/pull/37
+- build(deps): bump github/codeql-action from 3.29.4 to 3.29.5 by @dependabot[bot] in https://github.com/Warashi/cage/pull/38
+- build(deps): bump github/codeql-action from 3.29.7 to 3.29.8 by @dependabot[bot] in https://github.com/Warashi/cage/pull/39
+- build(deps): bump actions/create-github-app-token from 2.0.6 to 2.1.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/40
+- build(deps): bump actions/checkout from 4.2.2 to 5.0.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/41
+- build(deps): bump actions/create-github-app-token from 2.1.0 to 2.1.1 by @dependabot[bot] in https://github.com/Warashi/cage/pull/42
+- build(deps): bump goreleaser/goreleaser-action from 6.3.0 to 6.4.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/43
+- build(deps): bump github/codeql-action from 3.29.8 to 3.29.9 by @dependabot[bot] in https://github.com/Warashi/cage/pull/44
+- build(deps): bump github/codeql-action from 3.29.9 to 3.29.11 by @dependabot[bot] in https://github.com/Warashi/cage/pull/45
+
 ## [v0.1.9](https://github.com/Warashi/cage/compare/v0.1.8...v0.1.9) - 2025-07-26
 - feat: add IN_CAGE environment variable by @Warashi in https://github.com/Warashi/cage/pull/31
 - docs: add documentation for IN_CAGE environment variable by @Warashi in https://github.com/Warashi/cage/pull/33
