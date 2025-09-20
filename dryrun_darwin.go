@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -19,7 +18,7 @@ func showDryRun(config *SandboxConfig) error {
 	fmt.Println("Rules:")
 
 	if config.AllowAll {
-		fmt.Println("- Allow all operations (--allow-all flag)")
+		fmt.Println("- Allow all operations (-allow-all flag)")
 	} else {
 		fmt.Println("- Allow all operations by default")
 		fmt.Println("- Deny all file writes")
@@ -27,7 +26,7 @@ func showDryRun(config *SandboxConfig) error {
 		fmt.Println("  * System temporary directories")
 
 		if config.AllowKeychain {
-			fmt.Println("  * Keychain directories (--allow-keychain)")
+			fmt.Println("  * Keychain directories (-allow-keychain)")
 		}
 
 		// Process allowed paths
@@ -38,7 +37,7 @@ func showDryRun(config *SandboxConfig) error {
 			}
 			source := "user specified"
 			if config.AllowGit && strings.Contains(path, ".git") {
-				source = "--allow-git"
+				source = "-allow-git"
 			}
 			fmt.Printf("  * %s (%s)\n", absPath, source)
 		}
@@ -64,13 +63,4 @@ func showDryRun(config *SandboxConfig) error {
 	fmt.Println()
 
 	return nil
-}
-
-// printDryRunAndExit displays the dry-run information and exits
-func printDryRunAndExit(config *SandboxConfig) {
-	if err := showDryRun(config); err != nil {
-		fmt.Fprintf(os.Stderr, "cage: error showing dry-run: %v\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
 }

@@ -50,7 +50,7 @@ func runInSandbox(config *SandboxConfig) error {
 			rules = append(rules, landlock.RWDirs(path))
 			continue
 		}
-		
+
 		// Use appropriate rule based on file type
 		if info.IsDir() {
 			rules = append(rules, landlock.RWDirs(path))
