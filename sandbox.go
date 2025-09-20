@@ -1,5 +1,13 @@
 package main
 
+import (
+	"fmt"
+	"maps"
+	"os"
+	"path/filepath"
+	"slices"
+)
+
 // SandboxConfig contains the configuration for running a command in a sandbox
 type SandboxConfig struct {
 	// AllowAll disables all restrictions (for testing/debugging)
@@ -23,8 +31,33 @@ type SandboxConfig struct {
 	Args []string
 }
 
+func modifySandboxConfig(config *SandboxConfig) {
+	pathSet := make(map[string]struct{})
+	for _, path := range config.AllowedPaths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			absPath = path
+		}
+		pathSet[absPath] = struct{}{}
+	}
+
+	// Add git common directory if allowGit is enabled and not already handled by preset
+	if config.AllowGit {
+		gitCommonDir, err := getGitCommonDir()
+		if err != nil {
+			// Log the error but don't fail - the directory might not be a git repo
+			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		} else {
+			pathSet[gitCommonDir] = struct{}{}
+		}
+	}
+
+	config.AllowedPaths = slices.Sorted(maps.Keys(pathSet))
+}
+
 // RunInSandbox executes the given command with sandbox restrictions
 // This is implemented differently for each platform
 func RunInSandbox(config *SandboxConfig) error {
+	modifySandboxConfig(config)
 	return runInSandbox(config)
 }

@@ -205,16 +205,5 @@ func (p *Preset) ProcessPreset() (*Preset, error) {
 		processed.Allow = append(processed.Allow, AllowPath{Path: expanded})
 	}
 
-	// Add git common directory if AllowGit is enabled
-	if p.AllowGit {
-		gitCommonDir, err := getGitCommonDir()
-		if err != nil {
-			// Log the error but don't fail - the directory might not be a git repo
-			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
-		} else {
-			processed.Allow = append(processed.Allow, AllowPath{Path: gitCommonDir})
-		}
-	}
-
 	return processed, nil
 }
