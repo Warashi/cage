@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.1.11](https://github.com/Warashi/cage/compare/v0.1.10...v0.1.11) - 2025-10-04
+- build(deps): bump nixbuild/nix-quick-install-action from 33 to 34 by @dependabot[bot] in https://github.com/Warashi/cage/pull/55
+- build(deps): bump github/codeql-action from 3.30.3 to 3.30.5 by @dependabot[bot] in https://github.com/Warashi/cage/pull/54
+- build(deps): bump github/codeql-action from 3.30.5 to 3.30.6 by @dependabot[bot] in https://github.com/Warashi/cage/pull/57
+
 ## [v0.1.10](https://github.com/Warashi/cage/compare/v0.1.9...v0.1.10) - 2025-09-20
 - docs: add command docs for upgrading cage by @Warashi in https://github.com/Warashi/cage/pull/34
 - build(deps): bump github/codeql-action from 3.29.2 to 3.29.4 by @dependabot[bot] in https://github.com/Warashi/cage/pull/36
