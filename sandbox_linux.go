@@ -47,16 +47,16 @@ func runInSandbox(config *SandboxConfig) error {
 				continue
 			}
 			// For other errors, still try to add the rule as a directory
-			rules = append(rules, landlock.RWDirs(path))
+			rules = append(rules, landlock.RWDirs(path).WithIoctlDev())
 			continue
 		}
 
 		// Use appropriate rule based on file type
 		if info.IsDir() {
-			rules = append(rules, landlock.RWDirs(path))
+			rules = append(rules, landlock.RWDirs(path).WithIoctlDev())
 		} else {
 			// For regular files, device files, etc.
-			rules = append(rules, landlock.RWFiles(path))
+			rules = append(rules, landlock.RWFiles(path).WithIoctlDev())
 		}
 	}
 
