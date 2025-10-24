@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.12](https://github.com/Warashi/cage/compare/v0.1.11...v0.1.12) - 2025-10-24
+- fix: add WithRefer permission to allow hardlink creation in sandbox by @Warashi in https://github.com/Warashi/cage/pull/61
+
 ## [v0.1.11](https://github.com/Warashi/cage/compare/v0.1.10...v0.1.11) - 2025-10-19
 - build(deps): bump nixbuild/nix-quick-install-action from 33 to 34 by @dependabot[bot] in https://github.com/Warashi/cage/pull/55
 - build(deps): bump github/codeql-action from 3.30.3 to 3.30.5 by @dependabot[bot] in https://github.com/Warashi/cage/pull/54
