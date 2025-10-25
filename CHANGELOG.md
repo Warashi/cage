@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.13](https://github.com/Warashi/cage/compare/v0.1.12...v0.1.13) - 2025-10-25
+- build(deps): bump github/codeql-action from 4.30.9 to 4.31.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/63
+
 ## [v0.1.12](https://github.com/Warashi/cage/compare/v0.1.11...v0.1.12) - 2025-10-24
 - fix: add WithRefer permission to allow hardlink creation in sandbox by @Warashi in https://github.com/Warashi/cage/pull/61
 
