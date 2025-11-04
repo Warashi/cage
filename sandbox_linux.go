@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"github.com/landlock-lsm/go-landlock/landlock"
@@ -42,21 +43,22 @@ func runInSandbox(config *SandboxConfig) error {
 		// Check if the path exists before adding the rule
 		info, err := os.Stat(path)
 		if err != nil {
-			if os.IsNotExist(err) {
-				// Skip non-existent paths silently
-				continue
-			}
-			// For other errors, still try to add the rule as a directory
-			rules = append(rules, landlock.RWDirs(path).WithIoctlDev().WithRefer())
 			continue
 		}
 
 		// Use appropriate rule based on file type
 		if info.IsDir() {
-			rules = append(rules, landlock.RWDirs(path).WithIoctlDev().WithRefer())
+			if path == "/dev" || strings.HasPrefix(path, "/dev/") {
+				rules = append(rules, landlock.RWDirs(path).WithIoctlDev())
+				continue
+			}
+			rules = append(rules, landlock.RWDirs(path).WithRefer())
 		} else {
-			// For regular files, device files, etc.
-			rules = append(rules, landlock.RWFiles(path).WithIoctlDev().WithRefer())
+			if strings.HasPrefix(path, "/dev/") {
+				rules = append(rules, landlock.RWFiles(path).WithIoctlDev())
+				continue
+			}
+			rules = append(rules, landlock.RWFiles(path))
 		}
 	}
 
