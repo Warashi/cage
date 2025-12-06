@@ -29,7 +29,7 @@ jobs:
         with:
           app-id: ${{ vars.TAGPR_APP_ID }}
           private-key: ${{ secrets.TAGPR_APP_PRIVATE_KEY }}
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           token: ${{ steps.app-token.outputs.token }}
       - uses: Songmu/tagpr@7191605433b03e11b313dbbc0efb80185170de4b # v1.9.0
@@ -51,7 +51,7 @@ jobs:
           private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
           owner: Warashi
           repositories: homebrew-tap
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
