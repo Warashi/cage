@@ -453,3 +453,89 @@ auto-presets:
 		t.Errorf("command-line preset paths should come first, got: %v", uniquePaths[:2])
 	}
 }
+
+func TestSortedPaths(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []AllowPath
+		want  []string
+	}{
+		{
+			name:  "empty",
+			input: []AllowPath{},
+			want:  []string{},
+		},
+		{
+			name: "already sorted",
+			input: []AllowPath{
+				{Path: "/a"},
+				{Path: "/b"},
+				{Path: "/c"},
+			},
+			want: []string{"/a", "/b", "/c"},
+		},
+		{
+			name: "reverse order",
+			input: []AllowPath{
+				{Path: "/z"},
+				{Path: "/m"},
+				{Path: "/a"},
+			},
+			want: []string{"/a", "/m", "/z"},
+		},
+		{
+			name: "mixed paths",
+			input: []AllowPath{
+				{Path: "$HOME/.ssh"},
+				{Path: "/var/log"},
+				{Path: "$HOME/.aws"},
+				{Path: "/etc"},
+				{Path: "$HOME/.config/gcloud"},
+			},
+			want: []string{"$HOME/.aws", "$HOME/.config/gcloud", "$HOME/.ssh", "/etc", "/var/log"},
+		},
+		{
+			name: "single element",
+			input: []AllowPath{
+				{Path: "/only"},
+			},
+			want: []string{"/only"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sortedPaths(tt.input)
+
+			if len(got) != len(tt.want) {
+				t.Fatalf("sortedPaths() returned %d elements, want %d", len(got), len(tt.want))
+			}
+
+			for i, p := range got {
+				if p.Path != tt.want[i] {
+					t.Errorf("sortedPaths()[%d] = %q, want %q", i, p.Path, tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestSortedPathsDoesNotMutateOriginal(t *testing.T) {
+	original := []AllowPath{
+		{Path: "/z"},
+		{Path: "/a"},
+		{Path: "/m"},
+	}
+
+	originalCopy := make([]AllowPath, len(original))
+	copy(originalCopy, original)
+
+	_ = sortedPaths(original)
+
+	for i, p := range original {
+		if p.Path != originalCopy[i].Path {
+			t.Errorf("sortedPaths() mutated original: index %d changed from %q to %q",
+				i, originalCopy[i].Path, p.Path)
+		}
+	}
+}

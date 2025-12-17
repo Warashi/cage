@@ -142,11 +142,14 @@ func TestConfigListPresets(t *testing.T) {
 	}
 
 	presets := config.ListPresets()
-	if len(presets) != 3 {
-		t.Errorf("ListPresets() returned %d presets, want 3", len(presets))
+	expectedUserPresets := 3
+	expectedBuiltinPresets := len(BuiltinPresets)
+	expectedTotal := expectedUserPresets + expectedBuiltinPresets
+
+	if len(presets) != expectedTotal {
+		t.Errorf("ListPresets() returned %d presets, want %d", len(presets), expectedTotal)
 	}
 
-	// Check that all preset names are included
 	found := make(map[string]bool)
 	for _, name := range presets {
 		found[name] = true
@@ -154,8 +157,66 @@ func TestConfigListPresets(t *testing.T) {
 
 	for _, expected := range []string{"npm", "cargo", "pip"} {
 		if !found[expected] {
-			t.Errorf("ListPresets() missing preset: %s", expected)
+			t.Errorf("ListPresets() missing user preset: %s", expected)
 		}
+	}
+
+	for name := range BuiltinPresets {
+		builtinName := "builtin:" + name
+		if !found[builtinName] {
+			t.Errorf("ListPresets() missing builtin preset: %s", builtinName)
+		}
+	}
+}
+
+func TestBuiltinSecurePreset(t *testing.T) {
+	config := &Config{Presets: make(map[string]Preset)}
+
+	resolved, err := config.ResolvePreset("builtin:secure", nil)
+	if err != nil {
+		t.Fatalf("ResolvePreset(builtin:secure) error = %v", err)
+	}
+
+	if !resolved.Strict {
+		t.Error("builtin:secure should have Strict=true (inherited from strict-base)")
+	}
+
+	if !resolved.AllowGit {
+		t.Error("builtin:secure should have AllowGit=true")
+	}
+
+	if len(resolved.Allow) == 0 {
+		t.Error("builtin:secure should have Allow paths")
+	}
+
+	foundCwd := false
+	for _, p := range resolved.Allow {
+		if p.Path == "." {
+			foundCwd = true
+			break
+		}
+	}
+	if !foundCwd {
+		t.Error("builtin:secure should allow '.' (current directory)")
+	}
+
+	if len(resolved.Read) == 0 {
+		t.Error("builtin:secure should have Read paths (inherited from strict-base)")
+	}
+
+	if len(resolved.Deny) == 0 {
+		t.Error("builtin:secure should have Deny paths (inherited from secrets-deny)")
+	}
+
+	foundSshDeny := false
+	for _, p := range resolved.Deny {
+		if p.Path == "$HOME/.ssh" {
+			foundSshDeny = true
+			break
+		}
+	}
+	if !foundSshDeny {
+		t.Error("builtin:secure should deny $HOME/.ssh (inherited from secrets-deny)")
 	}
 }
 
@@ -738,6 +799,248 @@ func TestLoadConfigWithAllowPathFormats(t *testing.T) {
 	// Check third path (object format, eval-symlinks: true)
 	if preset.Allow[2].Path != "/home/user" || preset.Allow[2].EvalSymLinks != true {
 		t.Errorf("third path = %+v, want {Path: /home/user, EvalSymLinks: true}", preset.Allow[2])
+	}
+}
+
+func TestLoadConfigWithDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+	content := `defaults:
+  presets:
+    - "builtin:secrets-deny"
+    - "my-preset"
+
+presets:
+  my-preset:
+    allow:
+      - "/tmp"`
+	os.WriteFile(configPath, []byte(content), 0o644)
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	// Check defaults loaded correctly
+	if len(config.Defaults.Presets) != 2 {
+		t.Errorf("expected 2 default presets, got %d", len(config.Defaults.Presets))
+	}
+
+	if config.Defaults.Presets[0] != "builtin:secrets-deny" {
+		t.Errorf("expected first default preset to be 'builtin:secrets-deny', got %s", config.Defaults.Presets[0])
+	}
+
+	if config.Defaults.Presets[1] != "my-preset" {
+		t.Errorf("expected second default preset to be 'my-preset', got %s", config.Defaults.Presets[1])
+	}
+
+	// Check presets loaded correctly
+	preset, ok := config.GetPreset("my-preset")
+	if !ok {
+		t.Fatal("preset 'my-preset' not found")
+	}
+
+	if len(preset.Allow) != 1 || preset.Allow[0].Path != "/tmp" {
+		t.Errorf("unexpected preset allow paths: %v", preset.Allow)
+	}
+}
+
+func TestLoadConfigWithEmptyDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+	content := `presets:
+  test:
+    allow:
+      - "/tmp"`
+	os.WriteFile(configPath, []byte(content), 0o644)
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	// Check defaults is empty when not specified
+	if len(config.Defaults.Presets) != 0 {
+		t.Errorf("expected 0 default presets, got %d", len(config.Defaults.Presets))
+	}
+}
+
+func TestMergePresetsSkipDefaults(t *testing.T) {
+	tests := []struct {
+		name        string
+		dst         Preset
+		src         Preset
+		wantSkipDef bool
+	}{
+		{
+			name:        "both false",
+			dst:         Preset{SkipDefaults: false},
+			src:         Preset{SkipDefaults: false},
+			wantSkipDef: false,
+		},
+		{
+			name:        "dst true, src false",
+			dst:         Preset{SkipDefaults: true},
+			src:         Preset{SkipDefaults: false},
+			wantSkipDef: true,
+		},
+		{
+			name:        "dst false, src true",
+			dst:         Preset{SkipDefaults: false},
+			src:         Preset{SkipDefaults: true},
+			wantSkipDef: true,
+		},
+		{
+			name:        "both true",
+			dst:         Preset{SkipDefaults: true},
+			src:         Preset{SkipDefaults: true},
+			wantSkipDef: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mergePresets(&tt.dst, &tt.src)
+			if tt.dst.SkipDefaults != tt.wantSkipDef {
+				t.Errorf("mergePresets() SkipDefaults = %v, want %v", tt.dst.SkipDefaults, tt.wantSkipDef)
+			}
+		})
+	}
+}
+
+func TestProcessPresetSkipDefaults(t *testing.T) {
+	tests := []struct {
+		name        string
+		preset      Preset
+		wantSkipDef bool
+	}{
+		{
+			name:        "skip-defaults false",
+			preset:      Preset{SkipDefaults: false, Allow: []AllowPath{{Path: "/tmp"}}},
+			wantSkipDef: false,
+		},
+		{
+			name:        "skip-defaults true",
+			preset:      Preset{SkipDefaults: true, Allow: []AllowPath{{Path: "/tmp"}}},
+			wantSkipDef: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			processed, err := tt.preset.ProcessPreset()
+			if err != nil {
+				t.Fatalf("ProcessPreset() error = %v", err)
+			}
+			if processed.SkipDefaults != tt.wantSkipDef {
+				t.Errorf("ProcessPreset() SkipDefaults = %v, want %v", processed.SkipDefaults, tt.wantSkipDef)
+			}
+		})
+	}
+}
+
+func TestLoadConfigWithSkipDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+	content := `defaults:
+  presets:
+    - "builtin:secrets-deny"
+
+presets:
+  regular:
+    allow:
+      - "/tmp"
+  skip-defaults-preset:
+    skip-defaults: true
+    allow:
+      - "/var"`
+	os.WriteFile(configPath, []byte(content), 0o644)
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	regularPreset, ok := config.GetPreset("regular")
+	if !ok {
+		t.Fatal("preset 'regular' not found")
+	}
+	if regularPreset.SkipDefaults {
+		t.Error("expected regular preset SkipDefaults to be false")
+	}
+
+	skipPreset, ok := config.GetPreset("skip-defaults-preset")
+	if !ok {
+		t.Fatal("preset 'skip-defaults-preset' not found")
+	}
+	if !skipPreset.SkipDefaults {
+		t.Error("expected skip-defaults-preset SkipDefaults to be true")
+	}
+}
+
+func TestResolvePresetWithSkipDefaults(t *testing.T) {
+	config := &Config{
+		Presets: map[string]Preset{
+			"base": {
+				Allow: []AllowPath{{Path: "/base"}},
+			},
+			"child-no-skip": {
+				Extends: []string{"base"},
+				Allow:   []AllowPath{{Path: "/child"}},
+			},
+			"child-with-skip": {
+				Extends:      []string{"base"},
+				SkipDefaults: true,
+				Allow:        []AllowPath{{Path: "/child"}},
+			},
+			"parent-with-skip": {
+				SkipDefaults: true,
+				Allow:        []AllowPath{{Path: "/parent"}},
+			},
+			"child-inherits-skip": {
+				Extends: []string{"parent-with-skip"},
+				Allow:   []AllowPath{{Path: "/child"}},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		presetName  string
+		wantSkipDef bool
+	}{
+		{
+			name:        "base preset without skip-defaults",
+			presetName:  "base",
+			wantSkipDef: false,
+		},
+		{
+			name:        "child without skip-defaults",
+			presetName:  "child-no-skip",
+			wantSkipDef: false,
+		},
+		{
+			name:        "child with skip-defaults",
+			presetName:  "child-with-skip",
+			wantSkipDef: true,
+		},
+		{
+			name:        "child inherits skip-defaults from parent",
+			presetName:  "child-inherits-skip",
+			wantSkipDef: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved, err := config.ResolvePreset(tt.presetName, nil)
+			if err != nil {
+				t.Fatalf("ResolvePreset() error = %v", err)
+			}
+			if resolved.SkipDefaults != tt.wantSkipDef {
+				t.Errorf("ResolvePreset() SkipDefaults = %v, want %v", resolved.SkipDefaults, tt.wantSkipDef)
+			}
+		})
 	}
 }
 

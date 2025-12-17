@@ -8,6 +8,22 @@ import (
 	"slices"
 )
 
+// AccessMode represents the type of file access
+type AccessMode uint8
+
+const (
+	AccessRead      AccessMode = 1 << iota // Read access
+	AccessWrite                            // Write access
+	AccessReadWrite = AccessRead | AccessWrite
+)
+
+// DenyRule represents a path that should be denied access
+type DenyRule struct {
+	Pattern string     // The path pattern (may contain globs on macOS)
+	Modes   AccessMode // Which access modes to deny
+	IsGlob  bool       // True if pattern contains wildcards (only effective on macOS)
+}
+
 // SandboxConfig contains the configuration for running a command in a sandbox
 type SandboxConfig struct {
 	// AllowAll disables all restrictions (for testing/debugging)
@@ -21,8 +37,21 @@ type SandboxConfig struct {
 	// This enables git operations in worktrees
 	AllowGit bool
 
-	// AllowedPaths are paths where write access is granted
+	// AllowedPaths are paths where write access is granted (existing behavior)
 	AllowedPaths []string
+
+	// Strict enables strict mode where "/" is NOT added to read allowlist
+	// When true, only explicit ReadPaths are readable
+	Strict bool
+
+	// ReadPaths are paths where read access is explicitly granted
+	// Only used when Strict is true
+	ReadPaths []string
+
+	// DenyRules are paths that should be denied access
+	// On Linux, only write denies are effective (Landlock is allowlist-only)
+	// On macOS, both read and write denies are effective
+	DenyRules []DenyRule
 
 	// Command is the command to execute
 	Command string

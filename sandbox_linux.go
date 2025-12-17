@@ -6,79 +6,139 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
 	"github.com/landlock-lsm/go-landlock/landlock"
 )
 
-// runInSandbox implements sandbox execution for Linux using go-landlock
 func runInSandbox(config *SandboxConfig) error {
-	// If allow-all is set, run without restrictions
 	if config.AllowAll {
-		// Find the absolute path of the command
 		path, err := exec.LookPath(config.Command)
 		if err != nil {
 			return fmt.Errorf("command not found: %w", err)
 		}
-
-		// Prepare argv: command + args
 		argv := append([]string{config.Command}, config.Args...)
 		return syscall.Exec(path, argv, os.Environ())
 	}
 
-	// Build FSRules
 	var rules []landlock.Rule
 
-	// Grant read and execute access to the entire filesystem by default
-	// This allows all file reads and command executions
-	rules = append(rules, landlock.RODirs("/"))
+	if config.Strict {
+		systemRoots := []string{
+			"/usr", "/bin", "/sbin", "/lib", "/lib64",
+			"/etc", "/opt", "/var", "/dev", "/proc", "/sys",
+		}
+		for _, root := range systemRoots {
+			if info, err := os.Stat(root); err == nil && info.IsDir() {
+				rules = append(rules, landlock.RODirs(root))
+			}
+		}
 
-	// Grant write access to /dev/null by default
-	// Many programs write to /dev/null for discarding output
+		for _, path := range config.ReadPaths {
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				absPath = path
+			}
+			if info, err := os.Stat(absPath); err == nil && info.IsDir() {
+				rules = append(rules, landlock.RODirs(absPath))
+			} else if err == nil {
+				rules = append(rules, landlock.ROFiles(absPath))
+			}
+		}
+
+		for _, path := range config.AllowedPaths {
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				absPath = path
+			}
+			if info, err := os.Stat(absPath); err == nil && info.IsDir() {
+				rules = append(rules, landlock.RODirs(absPath))
+			} else if err == nil {
+				rules = append(rules, landlock.ROFiles(absPath))
+			}
+		}
+	} else {
+		rules = append(rules, landlock.RODirs("/"))
+
+		for _, rule := range config.DenyRules {
+			if rule.Modes&AccessRead != 0 {
+				if rule.IsGlob {
+					fmt.Fprintf(os.Stderr,
+						"cage: warning: glob pattern %q cannot be enforced on Linux "+
+							"(Landlock requires literal paths); pattern will be ignored\n",
+						rule.Pattern,
+					)
+				} else {
+					fmt.Fprintf(os.Stderr,
+						"cage: warning: read deny %q cannot be enforced on Linux "+
+							"(Landlock is allowlist-only); use --strict for read protection\n",
+						rule.Pattern,
+					)
+				}
+			}
+		}
+	}
+
 	rules = append(rules, landlock.RWFiles("/dev/null"))
 
-	// Grant read-write access to specified paths
+	writeDenySet := make(map[string]bool)
+	for _, rule := range config.DenyRules {
+		if rule.Modes&AccessWrite != 0 && !rule.IsGlob {
+			absPath, err := filepath.Abs(rule.Pattern)
+			if err != nil {
+				absPath = rule.Pattern
+			}
+			writeDenySet[absPath] = true
+		}
+	}
+
 	for _, path := range config.AllowedPaths {
-		// Check if the path exists before adding the rule
-		info, err := os.Stat(path)
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			absPath = path
+		}
+
+		if writeDenySet[absPath] {
+			fmt.Fprintf(os.Stderr,
+				"cage: info: skipping write allow for %s (matches deny rule)\n",
+				path,
+			)
+			continue
+		}
+
+		info, err := os.Stat(absPath)
 		if err != nil {
 			continue
 		}
 
-		// Use appropriate rule based on file type
 		if info.IsDir() {
-			if path == "/dev" || strings.HasPrefix(path, "/dev/") {
-				rules = append(rules, landlock.RWDirs(path).WithIoctlDev())
+			if absPath == "/dev" || strings.HasPrefix(absPath, "/dev/") {
+				rules = append(rules, landlock.RWDirs(absPath).WithIoctlDev())
 				continue
 			}
-			rules = append(rules, landlock.RWDirs(path).WithRefer())
+			rules = append(rules, landlock.RWDirs(absPath).WithRefer())
 		} else {
-			if strings.HasPrefix(path, "/dev/") {
-				rules = append(rules, landlock.RWFiles(path).WithIoctlDev())
+			if strings.HasPrefix(absPath, "/dev/") {
+				rules = append(rules, landlock.RWFiles(absPath).WithIoctlDev())
 				continue
 			}
-			rules = append(rules, landlock.RWFiles(path))
+			rules = append(rules, landlock.RWFiles(absPath))
 		}
 	}
 
-	// Apply Landlock restrictions using the best available version
-	// BestEffort ensures graceful degradation on older kernels
 	err := landlock.V5.BestEffort().RestrictPaths(rules...)
 	if err != nil {
 		return fmt.Errorf("failed to apply Landlock restrictions: %w", err)
 	}
 
-	// Find the absolute path of the command
 	path, err := exec.LookPath(config.Command)
 	if err != nil {
 		return fmt.Errorf("command not found: %w", err)
 	}
 
-	// Execute the command with restrictions applied
-	// syscall.Exec replaces the current process
 	argv := append([]string{config.Command}, config.Args...)
 	err = syscall.Exec(path, argv, os.Environ())
-	// If we reach here, exec failed
 	return fmt.Errorf("syscall.Exec failed: %w", err)
 }

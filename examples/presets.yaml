@@ -63,8 +63,8 @@ presets:
   claude-code:
     allow:
       - "."
-      - "/tmp" # on Linux
-      - "/private/tmp" # on macOS
+      - "/tmp"
+      - "/private/tmp"
       - "/dev/tty"
       - "$HOME/.claude"
       - "$HOME/.claude.json"
@@ -73,3 +73,40 @@ presets:
       - "$HOME/.claude.lock"
     allow-keychain: true
     allow-git: true
+
+  # Example: Strict mode preset using inheritance
+  secure-dev:
+    extends:
+      - "builtin:strict-base"
+      - "builtin:secrets-deny"
+    allow:
+      - "."
+    read:
+      - "$HOME/Projects"
+
+  # Example: Custom secrets protection (macOS only effective for reads)
+  protect-secrets:
+    deny:
+      - "$HOME/.ssh"
+      - "$HOME/.aws"
+      - "$HOME/.gnupg"
+    deny-read:
+      - "$HOME/.bash_history"
+      - "$HOME/.zsh_history"
+    deny-write:
+      - "$HOME/.npmrc"
+      - "$HOME/.pypirc"
+
+  # Example: Strict npm development
+  strict-npm:
+    extends:
+      - "builtin:strict-base"
+    strict: true
+    allow:
+      - "."
+      - "$HOME/.npm"
+      - "$HOME/.cache/npm"
+      - "node_modules"
+    read:
+      - "."
+      - "$HOME/.npmrc"

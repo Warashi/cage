@@ -1,21 +1,25 @@
 # Cage
 
-A cross-platform security sandbox CLI tool that executes commands with restricted file system write access while maintaining full read permissions.
+A cross-platform security sandbox CLI tool that restricts file system access for untrusted commands.
 
 ## Overview
 
-Cage provides a unified way to run potentially untrusted commands or scripts with file system write restrictions across Linux and macOS. It's designed for scenarios where you need to:
-- Run untrusted code safely
+Cage provides a unified way to run potentially untrusted commands or scripts with file system restrictions across Linux and macOS. It's designed for scenarios where you need to:
+- Run AI coding assistants (Claude, Aider, Cursor) with filesystem protection
 - Limit file system modifications during development
-- Analyze scripts without risk of system changes
+- Protect secrets (SSH keys, AWS credentials) from untrusted code
 - Process sensitive data with controlled output locations
 
 ## Features
 
-- **Write-only restriction**: Commands can read any file but cannot write unless explicitly allowed
+- **Write-only restriction** (default): Commands can read any file but cannot write unless explicitly allowed
+- **Strict mode**: Restrict read access too—only allow explicit paths
+- **Secrets protection**: Built-in presets to block access to SSH keys, cloud credentials, shell history
 - **Cross-platform**: Works on Linux (kernel 5.13+) and macOS
-- **Flexible permissions**: Grant write access to specific paths via `-allow` flags
-- **Debug mode**: Disable all restrictions with `-allow-all`
+- **Flexible permissions**: Grant write access via `--allow`, read access via `--allow-read` (strict mode)
+- **Deny rules**: Block specific paths with `--deny`, `--deny-read`, `--deny-write`
+- **Preset system**: Built-in and custom presets with inheritance
+- **Auto-presets**: Automatically apply presets based on command name
 - **Transparent execution**: Uses `syscall.Exec` to replace the process, preventing sandbox bypass
 
 ## Installation
@@ -53,13 +57,32 @@ cage [flags] <command> [args...]
 
 ### Flags
 
-- `-allow <path>`: Grant write access to a specific path (can be used multiple times)
-- `-allow-keychain`: Allow write access to the macOS keychain (macOS only)
-- `-allow-git`: Allow access to git common directory (enables git operations in worktrees)
-- `-allow-all`: Disable all restrictions (useful for debugging)
-- `-preset <name>`: Use a predefined preset configuration (can be used multiple times)
-- `-list-presets`: List available presets
-- `-config <path>`: Path to custom configuration file
+#### Write Access
+- `--allow <path>`: Grant write access to a specific path (can be used multiple times)
+- `--allow-keychain`: Allow write access to the macOS keychain (macOS only)
+- `--allow-git`: Allow access to git common directory (enables git operations in worktrees)
+- `--allow-all`: Disable all restrictions (useful for debugging)
+
+#### Strict Mode & Read Access
+- `--strict`: Enable strict mode (don't allow `/` read access by default)
+- `--allow-read <path>`: Grant read access to specific paths (only meaningful with `--strict`)
+
+#### Deny Rules
+- `--deny <path>`: Deny both read and write access (read deny only effective on macOS)
+- `--deny-read <path>`: Deny read access (only effective on macOS)
+- `--deny-write <path>`: Deny write access (both platforms)
+
+#### Presets
+- `--preset <name>`: Use a predefined preset configuration (can be used multiple times)
+- `--no-defaults`: Skip default presets defined in config
+- `--list-presets`: List available presets
+- `--show-preset <name>`: Show the contents of a preset
+- `-o <format>`: Output format for `--show-preset`: text (default) or yaml
+- `--config <path>`: Path to custom configuration file
+
+#### Utility
+- `--dry-run`: Show the generated sandbox profile without executing
+- `--version`: Print version information
 
 ### Examples
 
@@ -104,74 +127,123 @@ cage -allow-git -allow . -- git commit -m "Update files"
 
 #### Using presets
 ```bash
-# Use npm preset for Node.js development
-cage -preset npm npm install
+# Use built-in presets
+cage --preset builtin:npm -- npm install
+cage --preset builtin:cargo -- cargo build
 
-# Use cargo preset for Rust development
-cage -preset cargo cargo build
+# Combine built-in presets for security
+cage --preset builtin:strict-base --preset builtin:secrets-deny --allow . -- ./script.sh
 
-# Combine preset with additional allow paths
-cage -preset npm -allow ./logs npm run test
+# Use custom preset from config file
+cage --preset my-custom-preset -- ./script.sh
 
-# List available presets
-cage -list-presets
+# List all available presets (built-in and custom)
+cage --list-presets
 
-# Use custom configuration file
-cage -config $HOME/my-presets.yaml -preset custom-preset ./script.sh
+# View preset contents
+cage --show-preset builtin:secrets-deny
+cage --show-preset builtin:strict-base -o yaml
 
 # Auto-presets in action (when configured)
 cage claude help  # Automatically applies claude-code preset
 cage npm install  # Automatically applies npm preset
-cage yarn build   # Automatically applies npm preset (via regex pattern)
+```
+
+#### Strict mode for secrets protection
+```bash
+# Strict mode restricts read access to explicit paths only
+cage --strict --allow-read /usr --allow-read /etc --allow . -- make
+
+# Use built-in safe-home preset (strict mode + safe directories)
+cage --preset builtin:safe-home --allow . -- npm install
+```
+
+#### Deny rules (macOS full support, Linux write-only)
+```bash
+# Deny access to secrets
+cage --deny "$HOME/.ssh" --deny "$HOME/.aws" --allow . -- python script.py
+
+# Use built-in secrets-deny preset
+cage --preset builtin:secrets-deny --allow . -- ./untrusted-script.sh
 ```
 
 ### Configuration File
 
 Cage supports YAML configuration files to define presets. The configuration file is searched in the following order:
 
-1. Path specified with `-config` flag
-2. `$XDG_CONFIG_HOME/cage/presets.yaml` (or platform-specific config directory)
-3. `$XDG_CONFIG_HOME/cage/presets.yml` (or platform-specific config directory)
+1. Path specified with `--config` flag
+2. `$XDG_CONFIG_HOME/cage/presets.yaml`
+3. `$HOME/.config/cage/presets.yaml`
+4. `$HOME/.config/cage/presets.yml`
 
-The default config directory is:
-- Linux: `$HOME/.config/cage/`
-- macOS: `$HOME/Library/Application Support/cage/`
-- Windows: `%APPDATA%\cage\`
+### Built-in Presets
+
+Cage ships with these built-in presets (use with `--preset builtin:NAME`):
+
+| Preset | Description |
+|--------|-------------|
+| `builtin:secure` | **Recommended.** Strict mode + system reads + secrets deny + CWD write + git enabled |
+| `builtin:strict-base` | Minimal system read access with strict mode enabled |
+| `builtin:secrets-deny` | Blocks SSH keys, AWS/Azure/GCloud creds, GPG, shell history, browser data |
+| `builtin:safe-home` | Strict mode + safe home directories (Documents, Downloads, Projects, etc.) |
+| `builtin:home-dotfiles-deny` | Deny all dotfiles in home (macOS only - globs don't work on Linux) |
+| `builtin:npm` | Write access for Node.js development (., ~/.npm, ~/.cache/npm) |
+| `builtin:cargo` | Write access for Rust development (., ~/.cargo, ~/.rustup) |
 
 Example configuration file:
 
 ```yaml
+# Default presets applied to ALL commands
+defaults:
+  presets:
+    - "builtin:secure"
+
 presets:
+  # Extend secure preset with keychain access for AI tools
+  ai-coder:
+    extends:
+      - "builtin:secure"
+    allow:
+      - path: "/tmp"
+        eval-symlinks: true  # Resolves /tmp -> /private/tmp on macOS
+      - "$HOME/.config/claude"
+    allow-keychain: true
+    allow-git: true
+  
+  # Simple preset
   npm:
     allow:
       - "."
       - "$HOME/.npm"
       - "$HOME/.cache/npm"
-      - "$HOME/.npmrc"
   
-  cargo:
+  # Preset that skips defaults
+  unrestricted:
+    skip-defaults: true
     allow:
       - "."
-      - "$HOME/.cargo"
-      - "$HOME/.rustup"
-      - "$HOME/.cache/sccache"
+
+auto-presets:
+  # Exact command match
+  - command: claude
+    presets:
+      - ai-coder
   
-  git-enabled:
-    allow:
-      - "."
-      - "$HOME/.ssh"
-    allow-git: true
-    allow-keychain: true  # macOS only
-  
-  custom:
-    allow:
-      - "./output"
-      - "/tmp"  # Note: On macOS, use /private/tmp instead
-      - "$HOME/.myapp"
+  # Regex pattern match
+  - command-pattern: ^(npm|npx|yarn|pnpm)$
+    presets:
+      - npm
 ```
 
 Presets support the following options:
-- `allow`: List of paths to grant write access (can be strings or objects with `eval-symlinks` option)
+- `extends`: List of presets to inherit from (including `builtin:*` presets)
+- `skip-defaults`: Skip default presets when this preset is used (boolean)
+- `strict`: Enable strict mode (don't allow `/` read by default)
+- `allow`: List of paths to grant write access
+- `read`: List of read-only paths (only used when `strict: true`)
+- `deny`: List of paths to deny read+write (read deny only effective on macOS)
+- `deny-read`: List of paths to deny read (macOS only)
+- `deny-write`: List of paths to deny write (both platforms)
 - `allow-git`: Enable access to git common directory (boolean)
 - `allow-keychain`: Enable macOS keychain access (boolean)
 
@@ -262,29 +334,50 @@ Auto-preset rules support:
 ### Linux
 - Uses [Landlock LSM](https://landlock.io/) via go-landlock
 - Requires kernel 5.13 or later
-- Grants read/execute access to entire filesystem
-- Write access only to /dev/null and explicitly allowed paths
+- **Allowlist-only**: Cannot deny subpaths under allowed parents
+- **No glob patterns**: Paths must be literal
+- Read denies only warn—use strict mode for read protection
+- Restrictions inherit to all child processes (kernel-enforced)
 
 ### macOS
 - Uses `sandbox-exec` with custom sandbox profiles
-- Generates sandbox profiles that deny all writes except to allowed paths
-- Supports keychain access with `-allow-keychain` flag
-- Handles path resolution and proper escaping
+- Full allowlist AND denylist support
+- Supports glob patterns via regex
+- All deny rules fully enforced
+- Restrictions inherit to all child processes (kernel-enforced)
 
 ### Other Platforms
 - Returns an error indicating sandboxing is not implemented
 
 ## Security Policy
 
-Cage enforces the following security policy by default:
+Cage enforces the following security policy:
 
-| Operation | Default Policy | With `-allow` |
-|-----------|---------------|----------------|
-| File Read | ✅ Allowed | ✅ Allowed |
-| File Write | ❌ Denied | ✅ Allowed for specified paths |
-| File Execute | ✅ Allowed | ✅ Allowed |
-| Network Access | ✅ Allowed | ✅ Allowed |
-| Process Creation | ✅ Allowed | ✅ Allowed |
+| Operation | Default | With `--strict` | With `--allow` |
+|-----------|---------|-----------------|----------------|
+| File Read | ✅ Allowed | ❌ Denied (need `--allow-read`) | ✅ Allowed |
+| File Write | ❌ Denied | ❌ Denied | ✅ Allowed for path |
+| File Execute | ✅ Allowed | ✅ Allowed (if readable) | ✅ Allowed |
+| Network Access | ✅ Allowed | ✅ Allowed | ✅ Allowed |
+| Process Creation | ✅ Allowed | ✅ Allowed | ✅ Allowed |
+
+### Linux Limitation: Protecting Secrets
+
+On Linux, deny rules for **reads** cannot be enforced due to Landlock's allowlist-only model. The **only** way to protect secrets on Linux is to use strict mode:
+
+```yaml
+presets:
+  linux-secure:
+    strict: true          # Don't allow / read
+    read:                 # Explicitly list what CAN be read
+      - "/usr"
+      - "/lib"
+      - "/etc"
+      - "$HOME/Documents"
+      # .ssh, .aws NOT listed = NOT readable
+    allow:
+      - "."
+```
 
 ## Environment Variables
 
@@ -376,23 +469,48 @@ cage -allow ./reports -- python generate_report.py /confidential/data.csv
 ```
 
 ### 4. LLM Code Agents
+
+The recommended way to run AI coding assistants:
+
+```yaml
+# In ~/.config/cage/presets.yaml
+presets:
+  ai-coder:
+    extends:
+      - "builtin:strict-base"
+      - "builtin:secrets-deny"
+    allow:
+      - "."
+      - path: "/tmp"
+        eval-symlinks: true
+    allow-keychain: true
+    allow-git: true
+
+auto-presets:
+  - command-pattern: ^(claude|aider|cursor|opencode|windsurf)$
+    presets:
+      - ai-coder
+```
+
+Then simply run:
 ```bash
-cage \
-  -allow . \                                   # Allow current directory
-  -allow /tmp \                                # Allow temporary directory (on macOS, use /private/tmp)
-  -allow $HOME/.npm \                          # Allow npm directory for MCP server executed via npx command
-  -allow "$CLAUDE_CONFIG_DIR" \                # Allow Claude config directory
-  -allow "$(git rev-parse --git-common-dir)" \ # Allow git common directory
-  -allow-keychain \                            # Allow keychain access (macOS)
-  claude --dangerously-skip-permissions
+cage claude --dangerously-skip-permissions
+cage aider
+```
+
+Or with shell aliases in `~/.bashrc` or `~/.zshrc`:
+```bash
+alias claude='cage claude'
+alias aider='cage aider'
 ```
 
 ## Limitations
 
 - Sandboxing is only implemented for Linux and macOS
 - Linux requires kernel 5.13 or later for Landlock support
+- **Linux**: Cannot deny read access under allowed parents (use strict mode instead)
+- **Linux**: Glob patterns not supported (enumerate paths explicitly)
 - Network and process execution are not restricted
-- Cannot restrict reads (by design - focuses on write-only restrictions)
 
 ## Contributing
 
@@ -404,4 +522,6 @@ This project is licensed under the Apache License, Version 2.0. See the [LICENSE
 
 ## Related Documentation
 
+- [Quickstart Guide](docs/QUICKSTART.md) - Get started in 5 minutes
+- [Developer Guide](docs/DEVELOPER_GUIDE.md) - Complete configuration reference
 - [CLI Design Document](CLI_DESIGN.md) - Detailed design and implementation notes

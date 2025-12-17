@@ -5,3 +5,7 @@
 result
 # Added by goreleaser init:
 dist/
+
+tmp/
+.idea
+spec/
