@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,21 @@ import (
 
 	"github.com/goccy/go-yaml"
 )
+
+//go:embed builtin_presets.yaml
+var builtinPresetsYAML []byte
+
+var BuiltinPresets map[string]Preset
+
+func init() {
+	var config struct {
+		Presets map[string]Preset `yaml:"presets"`
+	}
+	if err := yaml.Unmarshal(builtinPresetsYAML, &config); err != nil {
+		panic("failed to parse builtin presets: " + err.Error())
+	}
+	BuiltinPresets = config.Presets
+}
 
 type Config struct {
 	Defaults    Defaults          `yaml:"defaults"`
@@ -69,196 +85,6 @@ func (p *AllowPath) UnmarshalYAML(b []byte) error {
 	default:
 		return fmt.Errorf("unmarshal AllowPath: unsupported type %T", a)
 	}
-}
-
-var BuiltinPresets = map[string]Preset{
-	"secure": {
-		Extends: []string{"builtin:strict-base", "builtin:secrets-deny"},
-		Allow: []AllowPath{
-			{Path: "."},
-			{Path: "$HOME/.local/share"},
-			{Path: "$HOME/.local/state"},
-
-			// AI coding tools config
-			{Path: "$HOME/.bun"}, // Bun package manager (used by opencode)
-			{Path: "$HOME/.cache/opencode"},
-			{Path: "$HOME/.claude"},
-			{Path: "$HOME/.codeium"}, // Codeium
-			{Path: "$HOME/.cody"},    // Sourcegraph Cody
-			{Path: "$HOME/.config/aider"},
-			{Path: "$HOME/.config/claude"},
-			{Path: "$HOME/.config/opencode"},
-			{Path: "$HOME/.continue"}, // Continue.dev
-			{Path: "$HOME/.cursor"},   // Cursor editor
-			{Path: "$HOME/.tabby"},    // Tabby
-
-			// IDE/editor config
-			{Path: "$HOME/.config/Code"},
-			{Path: "$HOME/.config/Cursor"},
-			{Path: "$HOME/.config/JetBrains"},
-			{Path: "$HOME/.config/VSCodium"},
-			{Path: "$HOME/.idea"},
-			{Path: "$HOME/.vscode"},
-			{Path: "$HOME/.vscode-server"},
-
-			// Shell tools
-			{Path: "$HOME/.cache/starship"},
-		},
-		AllowGit: true,
-	},
-	"strict-base": {
-		Strict: true,
-		Read: []AllowPath{
-			{Path: "/Applications"},
-			{Path: "/Library"},
-			{Path: "/System"},
-			{Path: "/bin"},
-			{Path: "/dev"},
-			{Path: "/etc"},
-			{Path: "/lib"},
-			{Path: "/lib64"},
-			{Path: "/opt"},
-			{Path: "/private/var"},
-			{Path: "/private/var/folders"},
-			{Path: "/proc"},
-			{Path: "/sbin"},
-			{Path: "/sys"},
-			{Path: "/usr"},
-			{Path: "/var"},
-			{Path: "$HOME/.config/fish"},
-		},
-	},
-	"secrets-deny": {
-		Deny: []AllowPath{
-			// SSH keys and config
-			{Path: "$HOME/.ssh"},
-
-			// Cloud provider credentials
-			{Path: "$HOME/.aws"},
-			{Path: "$HOME/.azure"},
-			{Path: "$HOME/.config/gcloud"},
-			{Path: "$HOME/.config/doctl"},    // DigitalOcean
-			{Path: "$HOME/.config/flyctl"},   // Fly.io
-			{Path: "$HOME/.config/hcloud"},   // Hetzner Cloud
-			{Path: "$HOME/.config/linode"},   // Linode
-			{Path: "$HOME/.config/scaleway"}, // Scaleway
-
-			// Container and orchestration
-			{Path: "$HOME/.kube"},
-			{Path: "$HOME/.docker/config.json"},
-			{Path: "$HOME/.helm"},
-			{Path: "$HOME/.config/containers"}, // Podman auth
-			{Path: "$HOME/.lima/_config"},      // Lima VM SSH keys
-			{Path: "$HOME/.rd"},                // Rancher Desktop
-			{Path: "$HOME/.config/k3d"},        // k3d kubeconfigs
-			{Path: "$HOME/.config/Lens"},       // Lens IDE
-			{Path: "$HOME/.config/OpenLens"},   // OpenLens IDE
-
-			// CI/CD and deployment platforms
-			{Path: "$HOME/.config/vercel"},
-			{Path: "$HOME/.config/netlify"},
-			{Path: "$HOME/.config/railway"},
-			{Path: "$HOME/.config/heroku"},
-			{Path: "$HOME/.config/circleci"},
-
-			// Git forges and CLI tools
-			{Path: "$HOME/.config/gh"},   // GitHub CLI
-			{Path: "$HOME/.config/hub"},  // Hub CLI
-			{Path: "$HOME/.config/glab"}, // GitLab CLI
-			{Path: "$HOME/.git-credentials"},
-			{Path: "$HOME/.netrc"},
-
-			// Security and encryption
-			{Path: "$HOME/.gnupg"},
-			{Path: "$HOME/.config/sops/age"}, // SOPS age keys
-			{Path: "$HOME/.config/op"},       // 1Password CLI
-
-			// Package manager credentials
-			{Path: "$HOME/.npmrc"},
-			{Path: "$HOME/.pypirc"},
-			{Path: "$HOME/.config/pip"},
-			{Path: "$HOME/.config/configstore"}, // npm/yarn token storage
-			{Path: "$HOME/.cargo/credentials.toml"},
-
-			// Security scanning and dev tools
-			{Path: "$HOME/.config/snyk"},
-			{Path: "$HOME/.config/ngrok"},
-
-			// Shell history (contains commands, secrets in env vars)
-			{Path: "$HOME/.bash_history"},
-			{Path: "$HOME/.zsh_history"},
-			{Path: "$HOME/.local/share/atuin"}, // Atuin shell history
-			{Path: "$HOME/.local/share/fish/fish_history"},
-			{Path: "$HOME/.node_repl_history"},
-			{Path: "$HOME/.python_history"},
-			{Path: "$HOME/.psql_history"},
-			{Path: "$HOME/.mysql_history"},
-			{Path: "$HOME/.rediscli_history"},
-
-			// macOS sensitive data
-			{Path: "$HOME/Library"},
-
-			// Browser data (sessions, cookies, saved passwords)
-			{Path: "$HOME/.config/google-chrome"},
-			{Path: "$HOME/.config/chromium"},
-			{Path: "$HOME/.mozilla/firefox"},
-			{Path: "$HOME/.config/BraveSoftware"},
-		},
-	},
-	"home-dotfiles-deny": {
-		Deny: []AllowPath{
-			{Path: "$HOME/.*"},
-		},
-	},
-	"safe-home": {
-		Strict: true,
-		Read: []AllowPath{
-			{Path: "/usr"},
-			{Path: "/bin"},
-			{Path: "/sbin"},
-			{Path: "/lib"},
-			{Path: "/lib64"},
-			{Path: "/etc"},
-			{Path: "/opt"},
-			{Path: "/var"},
-			{Path: "/dev"},
-			{Path: "/proc"},
-			{Path: "/sys"},
-			{Path: "/System"},
-			{Path: "/Library"},
-			{Path: "/Applications"},
-			{Path: "/private/var/folders"},
-			{Path: "$HOME/Documents"},
-			{Path: "$HOME/Downloads"},
-			{Path: "$HOME/Desktop"},
-			{Path: "$HOME/Pictures"},
-			{Path: "$HOME/Music"},
-			{Path: "$HOME/Videos"},
-			{Path: "$HOME/Movies"},
-			{Path: "$HOME/Projects"},
-			{Path: "$HOME/Developer"},
-			{Path: "$HOME/Code"},
-			{Path: "$HOME/src"},
-			{Path: "$HOME/go/src"},
-			{Path: "$HOME/workspace"},
-		},
-	},
-	"npm": {
-		Allow: []AllowPath{
-			{Path: "."},
-			{Path: "$HOME/.npm"},
-			{Path: "$HOME/.cache/npm"},
-			{Path: "node_modules"},
-		},
-	},
-	"cargo": {
-		Allow: []AllowPath{
-			{Path: "."},
-			{Path: "$HOME/.cargo"},
-			{Path: "$HOME/.rustup"},
-			{Path: "target"},
-		},
-	},
 }
 
 func userConfigDir() (string, error) {

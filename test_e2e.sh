@@ -16,6 +16,7 @@ TESTS_FAILED=0
 mkdir -p .dev # .dev is ignored by git
 TEST_DIR=$(mktemp -d .dev/cage_test.XXXXXX)
 CAGE_BIN="./cage"
+TEST_CONFIG="$TEST_DIR/empty_config.yaml"
 
 # Function to print test results
 print_test_result() {
@@ -73,10 +74,13 @@ setup() {
     
     echo "test content" > "$TEST_DIR/readable/test.txt"
     
+    # Create empty config to isolate tests from user config
+    echo "presets: {}" > "$TEST_CONFIG"
+    
     # Build cage if not present
     if [ ! -f "$CAGE_BIN" ]; then
         echo "Building cage..."
-        go build -o cage main.go || {
+        go build -o cage . || {
             echo -e "${RED}Failed to build cage${NC}"
             exit 1
         }
@@ -91,13 +95,13 @@ test_basic_execution() {
     echo "Testing basic command execution..."
     
     run_test "Execute simple command (ls)" "success" \
-        "$CAGE_BIN" ls -la "$TEST_DIR"
+        "$CAGE_BIN" --config "$TEST_CONFIG" ls -la "$TEST_DIR"
     
     run_test "Execute command with arguments" "success" \
-        "$CAGE_BIN" echo "Hello, World!"
+        "$CAGE_BIN" --config "$TEST_CONFIG" echo "Hello, World!"
     
     run_test "Read file content" "success" \
-        "$CAGE_BIN" cat "$TEST_DIR/readable/test.txt"
+        "$CAGE_BIN" --config "$TEST_CONFIG" cat "$TEST_DIR/readable/test.txt"
 }
 
 # Test 2: Write restrictions (default behavior)
@@ -105,13 +109,13 @@ test_write_restrictions() {
     echo -e "\nTesting write restrictions..."
     
     run_test "Write to file without permission (should fail)" "failure" \
-        "$CAGE_BIN" sh -c "echo 'data' > '$TEST_DIR/restricted/file.txt'"
+        "$CAGE_BIN" --config "$TEST_CONFIG" sh -c "echo 'data' > '$TEST_DIR/restricted/file.txt'"
     
     run_test "Create directory without permission (should fail)" "failure" \
-        "$CAGE_BIN" mkdir "$TEST_DIR/restricted/newdir"
+        "$CAGE_BIN" --config "$TEST_CONFIG" mkdir "$TEST_DIR/restricted/newdir"
     
     run_test "Delete file without permission (should fail)" "failure" \
-        "$CAGE_BIN" rm "$TEST_DIR/readable/test.txt"
+        "$CAGE_BIN" --config "$TEST_CONFIG" rm "$TEST_DIR/readable/test.txt"
 }
 
 # Test 3: Single directory allow
@@ -119,13 +123,13 @@ test_single_allow() {
     echo -e "\nTesting single --allow flag..."
     
     run_test "Write to allowed directory" "success" \
-        "$CAGE_BIN" --allow "$TEST_DIR/allowed" sh -c "echo 'allowed' > '$TEST_DIR/allowed/file.txt'"
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow "$TEST_DIR/allowed" sh -c "echo 'allowed' > '$TEST_DIR/allowed/file.txt'"
     
     run_test "Create file in allowed directory" "success" \
-        "$CAGE_BIN" --allow "$TEST_DIR/allowed" touch "$TEST_DIR/allowed/newfile.txt"
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow "$TEST_DIR/allowed" touch "$TEST_DIR/allowed/newfile.txt"
     
     run_test "Write to non-allowed directory (should fail)" "failure" \
-        "$CAGE_BIN" --allow "$TEST_DIR/allowed" sh -c "echo 'data' > '$TEST_DIR/restricted/file.txt'"
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow "$TEST_DIR/allowed" sh -c "echo 'data' > '$TEST_DIR/restricted/file.txt'"
 }
 
 # Test 4: Multiple directory allow
@@ -135,15 +139,15 @@ test_multiple_allow() {
     mkdir -p "$TEST_DIR/allowed2"
     
     run_test "Write to first allowed directory" "success" \
-        "$CAGE_BIN" --allow "$TEST_DIR/allowed" --allow "$TEST_DIR/allowed2" \
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow "$TEST_DIR/allowed" --allow "$TEST_DIR/allowed2" \
         sh -c "echo 'data1' > '$TEST_DIR/allowed/multi1.txt'"
     
     run_test "Write to second allowed directory" "success" \
-        "$CAGE_BIN" --allow "$TEST_DIR/allowed" --allow "$TEST_DIR/allowed2" \
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow "$TEST_DIR/allowed" --allow "$TEST_DIR/allowed2" \
         sh -c "echo 'data2' > '$TEST_DIR/allowed2/multi2.txt'"
     
     run_test "Write to non-allowed directory (should fail)" "failure" \
-        "$CAGE_BIN" --allow "$TEST_DIR/allowed" --allow "$TEST_DIR/allowed2" \
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow "$TEST_DIR/allowed" --allow "$TEST_DIR/allowed2" \
         sh -c "echo 'data' > '$TEST_DIR/restricted/file.txt'"
 }
 
@@ -152,47 +156,41 @@ test_allow_all() {
     echo -e "\nTesting --allow-all flag..."
     
     run_test "Write anywhere with --allow-all" "success" \
-        "$CAGE_BIN" --allow-all sh -c "echo 'unrestricted' > '$TEST_DIR/restricted/all.txt'"
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow-all sh -c "echo 'unrestricted' > '$TEST_DIR/restricted/all.txt'"
     
     run_test "Create directory with --allow-all" "success" \
-        "$CAGE_BIN" --allow-all mkdir "$TEST_DIR/restricted/alldir"
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow-all mkdir "$TEST_DIR/restricted/alldir"
     
     run_test "Delete file with --allow-all" "success" \
-        "$CAGE_BIN" --allow-all rm "$TEST_DIR/restricted/all.txt"
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow-all rm "$TEST_DIR/restricted/all.txt"
 }
 
 # Test 6: Complex commands
 test_complex_commands() {
     echo -e "\nTesting complex commands..."
     
-    # Test with pipes
     run_test "Command with pipe (read-only)" "success" \
-        "$CAGE_BIN" sh -c "echo 'test' | grep 'test'"
+        "$CAGE_BIN" --config "$TEST_CONFIG" sh -c "echo 'test' | grep 'test'"
     
-    # Test with redirection to allowed path
     run_test "Redirection to allowed path" "success" \
-        "$CAGE_BIN" --allow "$TEST_DIR/allowed" sh -c "echo 'redirected' > '$TEST_DIR/allowed/redirect.txt'"
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow "$TEST_DIR/allowed" sh -c "echo 'redirected' > '$TEST_DIR/allowed/redirect.txt'"
     
-    # Test with command separator
     run_test "Multiple commands with separator" "success" \
-        "$CAGE_BIN" --allow "$TEST_DIR/allowed" sh -c "cd '$TEST_DIR' && echo 'test' > allowed/cmd.txt"
+        "$CAGE_BIN" --config "$TEST_CONFIG" --allow "$TEST_DIR/allowed" sh -c "cd '$TEST_DIR' && echo 'test' > allowed/cmd.txt"
 }
 
 # Test 7: Edge cases
 test_edge_cases() {
     echo -e "\nTesting edge cases..."
     
-    # Test with non-existent command
     run_test "Non-existent command (should fail)" "failure" \
-        "$CAGE_BIN" nonexistentcommand
+        "$CAGE_BIN" --config "$TEST_CONFIG" nonexistentcommand
     
-    # Test with empty allow path
     run_test "Empty command (should fail)" "failure" \
-        "$CAGE_BIN"
+        "$CAGE_BIN" --config "$TEST_CONFIG"
     
-    # Test read access to various system directories
     run_test "Read /etc/passwd" "success" \
-        "$CAGE_BIN" cat /etc/passwd
+        "$CAGE_BIN" --config "$TEST_CONFIG" cat /etc/passwd
 }
 
 # Platform-specific tests

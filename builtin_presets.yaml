@@ -1,0 +1,193 @@
+# Built-in presets for cage
+# These are embedded at compile time and available as builtin:<name>
+
+presets:
+  # Recommended preset for AI coding assistants
+  # Combines strict mode + system reads + secrets deny + CWD write + git
+  secure:
+    extends:
+      - "builtin:strict-base"
+      - "builtin:secrets-deny"
+    allow:
+      - "."
+      - "$HOME/.local/share"
+      - "$HOME/.local/state"
+
+      # AI coding tools config
+      - "$HOME/.bun"              # Bun package manager (used by opencode)
+      - "$HOME/.cache/opencode"
+      - "$HOME/.claude"
+      - "$HOME/.codeium"          # Codeium
+      - "$HOME/.cody"             # Sourcegraph Cody
+      - "$HOME/.config/aider"
+      - "$HOME/.config/claude"
+      - "$HOME/.config/opencode"
+      - "$HOME/.continue"         # Continue.dev
+      - "$HOME/.cursor"           # Cursor editor
+      - "$HOME/.tabby"            # Tabby
+
+      # IDE/editor config
+      - "$HOME/.config/Code"
+      - "$HOME/.config/Cursor"
+      - "$HOME/.config/JetBrains"
+      - "$HOME/.config/VSCodium"
+      - "$HOME/.idea"
+      - "$HOME/.vscode"
+      - "$HOME/.vscode-server"
+
+      # Shell tools
+      - "$HOME/.cache/starship"
+    allow-git: true
+
+  # Minimal system read access with strict mode enabled
+  strict-base:
+    strict: true
+    read:
+      - "/Applications"
+      - "/Library"
+      - "/System"
+      - "/bin"
+      - "/dev"
+      - "/etc"
+      - "/lib"
+      - "/lib64"
+      - "/opt"
+      - "/private/var"
+      - "/private/var/folders"
+      - "/proc"
+      - "/sbin"
+      - "/sys"
+      - "/usr"
+      - "/var"
+      - "$HOME/.config/fish"
+
+  # Blocks SSH keys, cloud credentials, GPG, shell history, browser data
+  secrets-deny:
+    deny:
+      # SSH keys and config
+      - "$HOME/.ssh"
+
+      # Cloud provider credentials
+      - "$HOME/.aws"
+      - "$HOME/.azure"
+      - "$HOME/.config/gcloud"
+      - "$HOME/.config/doctl"       # DigitalOcean
+      - "$HOME/.config/flyctl"      # Fly.io
+      - "$HOME/.config/hcloud"      # Hetzner Cloud
+      - "$HOME/.config/linode"      # Linode
+      - "$HOME/.config/scaleway"    # Scaleway
+
+      # Container and orchestration
+      - "$HOME/.kube"
+      - "$HOME/.docker/config.json"
+      - "$HOME/.helm"
+      - "$HOME/.config/containers"  # Podman auth
+      - "$HOME/.lima/_config"       # Lima VM SSH keys
+      - "$HOME/.rd"                 # Rancher Desktop
+      - "$HOME/.config/k3d"         # k3d kubeconfigs
+      - "$HOME/.config/Lens"        # Lens IDE
+      - "$HOME/.config/OpenLens"    # OpenLens IDE
+
+      # CI/CD and deployment platforms
+      - "$HOME/.config/vercel"
+      - "$HOME/.config/netlify"
+      - "$HOME/.config/railway"
+      - "$HOME/.config/heroku"
+      - "$HOME/.config/circleci"
+
+      # Git forges and CLI tools
+      - "$HOME/.config/gh"          # GitHub CLI
+      - "$HOME/.config/hub"         # Hub CLI
+      - "$HOME/.config/glab"        # GitLab CLI
+      - "$HOME/.git-credentials"
+      - "$HOME/.netrc"
+
+      # Security and encryption
+      - "$HOME/.gnupg"
+      - "$HOME/.config/sops/age"    # SOPS age keys
+      - "$HOME/.config/op"          # 1Password CLI
+
+      # Package manager credentials
+      - "$HOME/.npmrc"
+      - "$HOME/.pypirc"
+      - "$HOME/.config/pip"
+      - "$HOME/.config/configstore" # npm/yarn token storage
+      - "$HOME/.cargo/credentials.toml"
+
+      # Security scanning and dev tools
+      - "$HOME/.config/snyk"
+      - "$HOME/.config/ngrok"
+
+      # Shell history (contains commands, secrets in env vars)
+      - "$HOME/.bash_history"
+      - "$HOME/.zsh_history"
+      - "$HOME/.local/share/atuin"  # Atuin shell history
+      - "$HOME/.local/share/fish/fish_history"
+      - "$HOME/.node_repl_history"
+      - "$HOME/.python_history"
+      - "$HOME/.psql_history"
+      - "$HOME/.mysql_history"
+      - "$HOME/.rediscli_history"
+
+      # macOS sensitive data
+      - "$HOME/Library"
+
+      # Browser data (sessions, cookies, saved passwords)
+      - "$HOME/.config/google-chrome"
+      - "$HOME/.config/chromium"
+      - "$HOME/.mozilla/firefox"
+      - "$HOME/.config/BraveSoftware"
+
+  # Deny all dotfiles in home (macOS only - globs don't work on Linux)
+  home-dotfiles-deny:
+    deny:
+      - "$HOME/.*"
+
+  # Strict mode + safe home directories (Documents, Downloads, Projects, etc.)
+  safe-home:
+    strict: true
+    read:
+      - "/usr"
+      - "/bin"
+      - "/sbin"
+      - "/lib"
+      - "/lib64"
+      - "/etc"
+      - "/opt"
+      - "/var"
+      - "/dev"
+      - "/proc"
+      - "/sys"
+      - "/System"
+      - "/Library"
+      - "/Applications"
+      - "/private/var/folders"
+      - "$HOME/Documents"
+      - "$HOME/Downloads"
+      - "$HOME/Desktop"
+      - "$HOME/Pictures"
+      - "$HOME/Music"
+      - "$HOME/Videos"
+      - "$HOME/Movies"
+      - "$HOME/Projects"
+      - "$HOME/Developer"
+      - "$HOME/Code"
+      - "$HOME/src"
+      - "$HOME/go/src"
+      - "$HOME/workspace"
+
+  # Write access for Node.js development
+  npm:
+    allow:
+      - "."
+      - "$HOME/.npm"
+      - "$HOME/.cache/npm"
+      - "node_modules"
+
+  # Write access for Rust development
+  cargo:
+    allow:
+      - "."
+      - "$HOME/.cargo"
+      - "$HOME/.rustup"
+      - "target"

@@ -169,6 +169,28 @@ func TestConfigListPresets(t *testing.T) {
 	}
 }
 
+func TestBuiltinPresetsYAMLLoaded(t *testing.T) {
+	expectedPresets := []string{
+		"secure",
+		"strict-base",
+		"secrets-deny",
+		"home-dotfiles-deny",
+		"safe-home",
+		"npm",
+		"cargo",
+	}
+
+	for _, name := range expectedPresets {
+		if _, ok := BuiltinPresets[name]; !ok {
+			t.Errorf("expected builtin preset %q not found", name)
+		}
+	}
+
+	if len(BuiltinPresets) != len(expectedPresets) {
+		t.Errorf("expected %d builtin presets, got %d", len(expectedPresets), len(BuiltinPresets))
+	}
+}
+
 func TestBuiltinSecurePreset(t *testing.T) {
 	config := &Config{Presets: make(map[string]Preset)}
 
