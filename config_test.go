@@ -1066,6 +1066,164 @@ func TestResolvePresetWithSkipDefaults(t *testing.T) {
 	}
 }
 
+func TestResolvePresetCircularReference(t *testing.T) {
+	config := &Config{
+		Presets: map[string]Preset{
+			"preset-a": {
+				Extends: []string{"preset-b"},
+				Allow:   []AllowPath{{Path: "/a"}},
+			},
+			"preset-b": {
+				Extends: []string{"preset-c"},
+				Allow:   []AllowPath{{Path: "/b"}},
+			},
+			"preset-c": {
+				Extends: []string{"preset-a"},
+				Allow:   []AllowPath{{Path: "/c"}},
+			},
+		},
+	}
+
+	_, err := config.ResolvePreset("preset-a", nil)
+	if err == nil {
+		t.Error("ResolvePreset() should return error for circular reference")
+	}
+	if !strings.Contains(err.Error(), "circular") {
+		t.Errorf("error should mention circular reference, got: %v", err)
+	}
+}
+
+func TestResolvePresetNotFound(t *testing.T) {
+	config := &Config{
+		Presets: map[string]Preset{
+			"existing": {
+				Allow: []AllowPath{{Path: "/tmp"}},
+			},
+		},
+	}
+
+	tests := []struct {
+		name       string
+		presetName string
+	}{
+		{"non-existent preset", "non-existent"},
+		{"non-existent builtin", "builtin:non-existent"},
+		{"preset with non-existent parent", "child-of-nothing"},
+	}
+
+	config.Presets["child-of-nothing"] = Preset{
+		Extends: []string{"does-not-exist"},
+		Allow:   []AllowPath{{Path: "/child"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := config.ResolvePreset(tt.presetName, nil)
+			if err == nil {
+				t.Errorf("ResolvePreset(%q) should return error", tt.presetName)
+			}
+		})
+	}
+}
+
+func TestResolvePresetMultiLevelInheritance(t *testing.T) {
+	config := &Config{
+		Presets: map[string]Preset{
+			"grandparent": {
+				Strict: true,
+				Allow:  []AllowPath{{Path: "/grandparent"}},
+				Deny:   []AllowPath{{Path: "/secret"}},
+			},
+			"parent": {
+				Extends:  []string{"grandparent"},
+				AllowGit: true,
+				Allow:    []AllowPath{{Path: "/parent"}},
+			},
+			"child": {
+				Extends:       []string{"parent"},
+				AllowKeychain: true,
+				Allow:         []AllowPath{{Path: "/child"}},
+			},
+		},
+	}
+
+	resolved, err := config.ResolvePreset("child", nil)
+	if err != nil {
+		t.Fatalf("ResolvePreset() error = %v", err)
+	}
+
+	if !resolved.Strict {
+		t.Error("child should inherit Strict from grandparent")
+	}
+	if !resolved.AllowGit {
+		t.Error("child should inherit AllowGit from parent")
+	}
+	if !resolved.AllowKeychain {
+		t.Error("child should have AllowKeychain")
+	}
+
+	allowPaths := make([]string, len(resolved.Allow))
+	for i, p := range resolved.Allow {
+		allowPaths[i] = p.Path
+	}
+	for _, want := range []string{"/grandparent", "/parent", "/child"} {
+		found := false
+		for _, p := range allowPaths {
+			if p == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("resolved preset missing allow path %q, got %v", want, allowPaths)
+		}
+	}
+
+	if len(resolved.Deny) != 1 || resolved.Deny[0].Path != "/secret" {
+		t.Errorf("resolved preset should have deny path /secret, got %v", resolved.Deny)
+	}
+}
+
+func TestResolvePresetMultipleParents(t *testing.T) {
+	config := &Config{
+		Presets: map[string]Preset{
+			"strict-base": {
+				Strict: true,
+				Read:   []AllowPath{{Path: "/usr"}, {Path: "/etc"}},
+			},
+			"secrets-deny": {
+				Deny: []AllowPath{{Path: "$HOME/.ssh"}, {Path: "$HOME/.aws"}},
+			},
+			"combined": {
+				Extends:  []string{"strict-base", "secrets-deny"},
+				AllowGit: true,
+				Allow:    []AllowPath{{Path: "."}},
+			},
+		},
+	}
+
+	resolved, err := config.ResolvePreset("combined", nil)
+	if err != nil {
+		t.Fatalf("ResolvePreset() error = %v", err)
+	}
+
+	if !resolved.Strict {
+		t.Error("should inherit Strict from strict-base")
+	}
+	if !resolved.AllowGit {
+		t.Error("should have AllowGit from combined")
+	}
+	if len(resolved.Read) != 2 {
+		t.Errorf("should have 2 read paths from strict-base, got %d", len(resolved.Read))
+	}
+	if len(resolved.Deny) != 2 {
+		t.Errorf("should have 2 deny paths from secrets-deny, got %d", len(resolved.Deny))
+	}
+	if len(resolved.Allow) != 1 {
+		t.Errorf("should have 1 allow path from combined, got %d", len(resolved.Allow))
+	}
+}
+
 func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 	// Create a temporary directory with a symlink
 	tmpDir := t.TempDir()

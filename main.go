@@ -142,7 +142,7 @@ func parseFlags() (*flags, []string) {
 		&f.outputFormat,
 		"o",
 		"text",
-		"Output format for --show-preset: text or yaml",
+		"Output format for --show-preset: text, yaml (resolved), or raw (unresolved YAML)",
 	)
 
 	flag.StringVar(
@@ -197,12 +197,12 @@ func (a *arrayFlags) Set(value string) error {
 	return nil
 }
 
-func printPreset(name string, p *Preset, format string) {
+func printPreset(name string, p *Preset, format string, extends []string) {
 	if format == "yaml" {
-		printPresetYAML(name, p)
+		printPresetYAML(name, p, extends)
 		return
 	}
-	printPresetText(name, p)
+	printPresetText(name, p, extends)
 }
 
 func sortedPaths(paths []AllowPath) []AllowPath {
@@ -214,9 +214,21 @@ func sortedPaths(paths []AllowPath) []AllowPath {
 	return sorted
 }
 
-func printPresetText(name string, p *Preset) {
+func printPresetText(name string, p *Preset, extends []string) {
 	fmt.Printf("Preset: %s\n", name)
 	fmt.Println("========================================")
+
+	if len(extends) > 0 {
+		fmt.Printf("Extends: %s\n", strings.Join(extends, " → "))
+		fmt.Println()
+	}
+
+	if len(p.Extends) > 0 {
+		fmt.Println("extends:")
+		for _, ext := range p.Extends {
+			fmt.Printf("  - %s\n", ext)
+		}
+	}
 
 	if p.AllowGit {
 		fmt.Println("allow-git: true")
@@ -267,14 +279,24 @@ func printPresetText(name string, p *Preset) {
 	}
 }
 
-func printPresetYAML(name string, p *Preset) {
+func printPresetYAML(name string, p *Preset, extends []string) {
 	presetName := name
 	if strings.HasPrefix(name, "builtin:") {
 		presetName = strings.TrimPrefix(name, "builtin:")
 	}
 
+	if len(extends) > 0 {
+		fmt.Printf("# Extends: %s\n", strings.Join(extends, " → "))
+	}
 	fmt.Println("presets:")
 	fmt.Printf("  %s:\n", presetName)
+
+	if len(p.Extends) > 0 {
+		fmt.Println("    extends:")
+		for _, ext := range p.Extends {
+			fmt.Printf("      - %q\n", ext)
+		}
+	}
 
 	if p.AllowGit {
 		fmt.Println("    allow-git: true")
@@ -363,12 +385,22 @@ func main() {
 
 	// Handle show-preset flag
 	if flags.showPreset != "" {
-		resolved, err := config.ResolvePreset(flags.showPreset, nil)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "cage: %v\n", err)
+		rawPreset, ok := config.GetPreset(flags.showPreset)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "cage: preset not found: %s\n", flags.showPreset)
 			os.Exit(1)
 		}
-		printPreset(flags.showPreset, resolved, flags.outputFormat)
+
+		if flags.outputFormat == "raw" {
+			printPreset(flags.showPreset, &rawPreset, "yaml", nil)
+		} else {
+			resolved, err := config.ResolvePreset(flags.showPreset, nil)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "cage: %v\n", err)
+				os.Exit(1)
+			}
+			printPreset(flags.showPreset, resolved, flags.outputFormat, rawPreset.Extends)
+		}
 		os.Exit(0)
 	}
 

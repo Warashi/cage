@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -538,4 +540,249 @@ func TestSortedPathsDoesNotMutateOriginal(t *testing.T) {
 				i, originalCopy[i].Path, p.Path)
 		}
 	}
+}
+
+func TestPrintPresetText(t *testing.T) {
+	tests := []struct {
+		name           string
+		presetName     string
+		preset         *Preset
+		extends        []string
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name:       "preset with inheritance chain",
+			presetName: "test-preset",
+			preset: &Preset{
+				AllowGit: true,
+				Strict:   true,
+				Allow:    []AllowPath{{Path: "/tmp"}},
+			},
+			extends: []string{"base-preset", "other-preset"},
+			wantContains: []string{
+				"Preset: test-preset",
+				"Extends: base-preset → other-preset",
+				"allow-git: true",
+				"strict: true",
+				"/tmp",
+			},
+		},
+		{
+			name:       "preset without inheritance",
+			presetName: "simple-preset",
+			preset: &Preset{
+				Allow: []AllowPath{{Path: "/var/log"}},
+			},
+			extends: nil,
+			wantContains: []string{
+				"Preset: simple-preset",
+				"/var/log",
+			},
+			wantNotContain: []string{
+				"Extends:",
+			},
+		},
+		{
+			name:       "raw preset with extends field",
+			presetName: "child-preset",
+			preset: &Preset{
+				Extends:  []string{"builtin:strict-base", "builtin:secrets-deny"},
+				AllowGit: true,
+				Allow:    []AllowPath{{Path: "."}},
+			},
+			extends: nil,
+			wantContains: []string{
+				"Preset: child-preset",
+				"extends:",
+				"builtin:strict-base",
+				"builtin:secrets-deny",
+				"allow-git: true",
+			},
+			wantNotContain: []string{
+				"Extends:",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := captureOutput(func() {
+				printPresetText(tt.presetName, tt.preset, tt.extends)
+			})
+
+			for _, want := range tt.wantContains {
+				if !containsString(output, want) {
+					t.Errorf("output missing expected string %q\nGot:\n%s", want, output)
+				}
+			}
+
+			for _, notWant := range tt.wantNotContain {
+				if containsString(output, notWant) {
+					t.Errorf("output should not contain %q\nGot:\n%s", notWant, output)
+				}
+			}
+		})
+	}
+}
+
+func TestPrintPresetYAML(t *testing.T) {
+	tests := []struct {
+		name           string
+		presetName     string
+		preset         *Preset
+		extends        []string
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name:       "resolved preset with inheritance comment",
+			presetName: "builtin:secure",
+			preset: &Preset{
+				AllowGit: true,
+				Strict:   true,
+				Allow:    []AllowPath{{Path: "."}},
+			},
+			extends: []string{"builtin:strict-base", "builtin:secrets-deny"},
+			wantContains: []string{
+				"# Extends: builtin:strict-base → builtin:secrets-deny",
+				"presets:",
+				"  secure:",
+				"    allow-git: true",
+				"    strict: true",
+			},
+		},
+		{
+			name:       "raw preset with extends field in YAML",
+			presetName: "my-preset",
+			preset: &Preset{
+				Extends:       []string{"builtin:secure"},
+				AllowKeychain: true,
+				Allow:         []AllowPath{{Path: "/tmp"}},
+			},
+			extends: nil,
+			wantContains: []string{
+				"presets:",
+				"  my-preset:",
+				"    extends:",
+				`      - "builtin:secure"`,
+				"    allow-keychain: true",
+			},
+			wantNotContain: []string{
+				"# Extends:",
+			},
+		},
+		{
+			name:       "preset without inheritance",
+			presetName: "builtin:npm",
+			preset: &Preset{
+				Allow: []AllowPath{
+					{Path: "."},
+					{Path: "$HOME/.npm"},
+				},
+			},
+			extends: nil,
+			wantContains: []string{
+				"presets:",
+				"  npm:",
+				"    allow:",
+			},
+			wantNotContain: []string{
+				"# Extends:",
+				"extends:",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := captureOutput(func() {
+				printPresetYAML(tt.presetName, tt.preset, tt.extends)
+			})
+
+			for _, want := range tt.wantContains {
+				if !containsString(output, want) {
+					t.Errorf("output missing expected string %q\nGot:\n%s", want, output)
+				}
+			}
+
+			for _, notWant := range tt.wantNotContain {
+				if containsString(output, notWant) {
+					t.Errorf("output should not contain %q\nGot:\n%s", notWant, output)
+				}
+			}
+		})
+	}
+}
+
+func TestPrintPresetFormats(t *testing.T) {
+	preset := &Preset{
+		Extends:  []string{"parent-preset"},
+		AllowGit: true,
+		Allow:    []AllowPath{{Path: "/tmp"}},
+	}
+	extends := []string{"parent-preset"}
+
+	t.Run("text format", func(t *testing.T) {
+		output := captureOutput(func() {
+			printPreset("test", preset, "text", extends)
+		})
+		if !containsString(output, "Preset: test") {
+			t.Errorf("text format should contain 'Preset: test', got:\n%s", output)
+		}
+		if !containsString(output, "========") {
+			t.Errorf("text format should contain separator line, got:\n%s", output)
+		}
+	})
+
+	t.Run("yaml format", func(t *testing.T) {
+		output := captureOutput(func() {
+			printPreset("test", preset, "yaml", extends)
+		})
+		if !containsString(output, "presets:") {
+			t.Errorf("yaml format should contain 'presets:', got:\n%s", output)
+		}
+		if !containsString(output, "# Extends:") {
+			t.Errorf("yaml format should contain inheritance comment, got:\n%s", output)
+		}
+	})
+
+	t.Run("raw format uses yaml output", func(t *testing.T) {
+		rawPreset := &Preset{
+			Extends:  []string{"parent-preset"},
+			AllowGit: true,
+			Allow:    []AllowPath{{Path: "/tmp"}},
+		}
+		output := captureOutput(func() {
+			printPreset("test", rawPreset, "yaml", nil)
+		})
+		if !containsString(output, "presets:") {
+			t.Errorf("raw format should use yaml output, got:\n%s", output)
+		}
+		if !containsString(output, "extends:") {
+			t.Errorf("raw format should show extends field, got:\n%s", output)
+		}
+		if containsString(output, "# Extends:") {
+			t.Errorf("raw format should not have inheritance comment, got:\n%s", output)
+		}
+	})
+}
+
+func captureOutput(f func()) string {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	f()
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	return buf.String()
+}
+
+func containsString(s, substr string) bool {
+	return strings.Contains(s, substr)
 }
