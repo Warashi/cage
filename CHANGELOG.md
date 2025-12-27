@@ -1,5 +1,18 @@
 # Changelog
 
+## [v0.1.14](https://github.com/Warashi/cage/compare/v0.1.13...v0.1.14) - 2025-12-27
+- build(deps): bump github/codeql-action from 4.31.2 to 4.31.3 by @dependabot[bot] in https://github.com/Warashi/cage/pull/68
+- build(deps): bump actions/create-github-app-token from 2.1.4 to 2.2.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/70
+- build(deps): bump actions/setup-go from 6.0.0 to 6.1.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/71
+- build(deps): bump github/codeql-action from 4.31.3 to 4.31.4 by @dependabot[bot] in https://github.com/Warashi/cage/pull/73
+- build(deps): bump actions/checkout from 5.0.0 to 6.0.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/72
+- build(deps): bump github/codeql-action from 4.31.4 to 4.31.5 by @dependabot[bot] in https://github.com/Warashi/cage/pull/74
+- build(deps): bump github/codeql-action from 4.31.5 to 4.31.9 by @dependabot[bot] in https://github.com/Warashi/cage/pull/81
+- build(deps): bump Songmu/tagpr from 1.9.0 to 1.10.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/80
+- build(deps): bump actions/create-github-app-token from 2.2.0 to 2.2.1 by @dependabot[bot] in https://github.com/Warashi/cage/pull/77
+- build(deps): bump actions/checkout from 6.0.0 to 6.0.1 by @dependabot[bot] in https://github.com/Warashi/cage/pull/76
+- chore: update dependabot config by @Warashi in https://github.com/Warashi/cage/pull/82
+
 ## [v0.1.13](https://github.com/Warashi/cage/compare/v0.1.12...v0.1.13) - 2025-11-04
 - build(deps): bump github/codeql-action from 4.30.9 to 4.31.0 by @dependabot[bot] in https://github.com/Warashi/cage/pull/63
 - chore: add meta.mainProgram to default.nix by @Warashi in https://github.com/Warashi/cage/pull/65
