@@ -3,10 +3,28 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "saturday"
+      interval: "monthly"
+      time: "12:00"
+      timezone: "Asia/Tokyo"
+    rebase-strategy: "disabled"
+    open-pull-requests-limit: 3
+    groups:
+      github-actions-all:
+        patterns:
+          - "*"
+    cooldown:
+      default-days: 30
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "saturday"
+      interval: "monthly"
+      time: "12:00"
+      timezone: "Asia/Tokyo"
+    rebase-strategy: "disabled"
+    open-pull-requests-limit: 3
+    groups:
+      gomod-all:
+        patterns:
+          - "*"
+    cooldown:
+      default-days: 90
