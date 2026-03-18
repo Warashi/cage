@@ -73,14 +73,21 @@ func generateSandboxProfile(config *SandboxConfig) (string, error) {
 			absPath = path
 		}
 
+		// Check if the path exists before adding the rule
+		info, err := os.Stat(absPath)
+		if err != nil {
+			continue
+		}
+
 		// Escape the path for the sandbox profile
 		escapedPath := escapePathForSandbox(absPath)
 
-		// Allow writes to the path and all subpaths
-		fmt.Fprintf(&profile, "(allow file-write* (subpath \"%s\"))\n", escapedPath)
-
-		// Also allow writes to the literal path (for directory creation)
-		fmt.Fprintf(&profile, "(allow file-write* (literal \"%s\"))\n", escapedPath)
+		// Use subpath for directories, literal for files
+		if info.IsDir() {
+			fmt.Fprintf(&profile, "(allow file-write* (subpath \"%s\"))\n", escapedPath)
+		} else {
+			fmt.Fprintf(&profile, "(allow file-write* (literal \"%s\"))\n", escapedPath)
+		}
 	}
 
 	return profile.String(), nil
