@@ -26,10 +26,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+      - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version-file: 'go.mod'
           cache: "${{ github.event_name == 'push' }}"
+      - run: sudo apt-get update && sudo apt-get install -y bubblewrap
+        if: runner.os == 'Linux'
       - run: go build
       - run: go test -v ./...
       - run: ./test_e2e.sh
