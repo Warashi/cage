@@ -73,14 +73,51 @@ func generateSandboxProfile(config *SandboxConfig) (string, error) {
 			absPath = path
 		}
 
+		// Check if the path exists before adding the rule
+		info, err := os.Stat(absPath)
+		if err != nil {
+			continue
+		}
+
 		// Escape the path for the sandbox profile
 		escapedPath := escapePathForSandbox(absPath)
 
-		// Allow writes to the path and all subpaths
-		fmt.Fprintf(&profile, "(allow file-write* (subpath \"%s\"))\n", escapedPath)
+		// Use subpath for directories, literal for files
+		if info.IsDir() {
+			fmt.Fprintf(&profile, "(allow file-write* (subpath \"%s\"))\n", escapedPath)
+		} else {
+			fmt.Fprintf(&profile, "(allow file-write* (literal \"%s\"))\n", escapedPath)
+		}
+	}
 
-		// Also allow writes to the literal path (for directory creation)
-		fmt.Fprintf(&profile, "(allow file-write* (literal \"%s\"))\n", escapedPath)
+	// Deny read access to specified paths (placed last to take priority over allow rules)
+	for _, path := range config.DeniedPaths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			absPath = path
+		}
+
+		// Check if the path exists before adding the rule
+		info, err := os.Stat(absPath)
+		if err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"cage: warning: deny path does not exist, skipping: %s\n",
+				absPath,
+			)
+			continue
+		}
+
+		escapedPath := escapePathForSandbox(absPath)
+
+		// Use subpath for directories, literal for files
+		// Use file-read-data instead of file-read* to allow metadata access (e.g. stat).
+		// The goal is to prevent reading file contents, not to hide the existence of files.
+		if info.IsDir() {
+			fmt.Fprintf(&profile, "(deny file-read-data (subpath \"%s\"))\n", escapedPath)
+		} else {
+			fmt.Fprintf(&profile, "(deny file-read-data (literal \"%s\"))\n", escapedPath)
+		}
 	}
 
 	return profile.String(), nil

@@ -4,6 +4,7 @@
 Cage is a security-focused command-line tool that creates sandboxed environments for running untrusted or potentially dangerous commands. It provides unified sandboxing capabilities across Linux (using go-landlock) and macOS/Darwin (using sandbox-exec), ensuring consistent security policies across platforms.
 
 The primary goal of Cage is to prevent unintended file system modifications by restricting write access to only explicitly allowed paths, while maintaining full read access and network capabilities.
+Sensitive paths can also be explicitly denied from read access using the `-deny` flag.
 
 ## Command Structure
 
@@ -28,6 +29,9 @@ cage [flags] -- <command> [command-flags] [command-args...]
 ```bash
 --allow <path>     # Grant write access to specific paths (can be used multiple times)
                    # Example: --allow /tmp --allow $HOME/output
+--deny <path>      # Deny read access to specific paths (can be used multiple times)
+                   # On Linux, requires bubblewrap (bwrap)
+                   # Example: --deny ~/.ssh --deny ~/.env
 ```
 
 ## Usage Examples
@@ -64,7 +68,7 @@ cage --allow ./data -- python scraper.py --output ./data/results.json
 ## Important Notes
 
 ### Default Security Policy
-- **Read Access**: Unrestricted - commands can read any file the user has access to
+- **Read Access**: Unrestricted by default - use `--deny` flags to restrict sensitive paths
 - **Write Access**: Denied by default - must be explicitly granted using `--allow` flags
 - **Network Access**: Allowed - commands can make network connections
 - **Process Execution**: Allowed - commands can spawn child processes
@@ -81,6 +85,7 @@ cage --allow ./data -- python scraper.py --output ./data/results.json
 - Requires kernel version 5.13 or later
 - Uses the Landlock LSM (Linux Security Module) for fine-grained access control
 - Provides robust, kernel-level security guarantees
+- When `--deny` is specified, falls back to bubblewrap (bwrap) since Landlock uses an allowlist model
 
 **macOS (using sandbox-exec):**
 - Compatible with all modern macOS versions
@@ -108,6 +113,9 @@ cage python suspicious_script.py
 
 # Test third-party tools with minimal permissions
 cage --allow $HOME/safe-output -- third-party-tool process data.json
+
+# Deny access to sensitive files
+cage --allow . --deny ~/.ssh --deny ~/.env -- some-command
 ```
 
 ### Data Processing

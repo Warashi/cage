@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -13,7 +14,16 @@ func showDryRun(config *SandboxConfig) error {
 	fmt.Println("Sandbox Profile (dry-run):")
 	fmt.Println("========================================")
 	fmt.Println("Platform: Linux")
-	fmt.Println("Technology: Landlock LSM")
+	if len(config.DeniedPaths) > 0 {
+		fmt.Println("Technology: bubblewrap (bwrap)")
+		if _, err := exec.LookPath("bwrap"); err != nil {
+			fmt.Println(
+				"WARNING: bubblewrap (bwrap) is not installed; -deny flag will fail at runtime",
+			)
+		}
+	} else {
+		fmt.Println("Technology: Landlock LSM")
+	}
 	fmt.Println()
 	fmt.Println("The following restrictions would be applied:")
 	fmt.Println()
@@ -37,6 +47,17 @@ func showDryRun(config *SandboxConfig) error {
 				source = "-allow-git"
 			}
 			fmt.Printf("  * %s (%s)\n", absPath, source)
+		}
+
+		if len(config.DeniedPaths) > 0 {
+			fmt.Println("- Deny read access to:")
+			for _, path := range config.DeniedPaths {
+				absPath, err := filepath.Abs(path)
+				if err != nil {
+					absPath = path
+				}
+				fmt.Printf("  * %s\n", absPath)
+			}
 		}
 	}
 

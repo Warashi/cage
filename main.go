@@ -29,6 +29,7 @@ type flags struct {
 	allowKeychain bool
 	allowGit      bool
 	allowPaths    []string
+	denyPaths     []string
 	presets       []string
 	listPresets   bool
 	configPath    string
@@ -66,6 +67,14 @@ func parseFlags() (*flags, []string) {
 		&allowFlags,
 		"allow",
 		"Grant write access to specific paths (can be used multiple times)",
+	)
+
+	// Custom flag parsing to handle multiple --deny flags
+	var denyFlags arrayFlags
+	flag.Var(
+		&denyFlags,
+		"deny",
+		"Deny read access to specific paths (can be used multiple times; on Linux requires bwrap)",
 	)
 
 	// Custom flag parsing to handle multiple --preset flags
@@ -107,6 +116,7 @@ func parseFlags() (*flags, []string) {
 	flag.Parse()
 
 	f.allowPaths = []string(allowFlags)
+	f.denyPaths = []string(denyFlags)
 	f.presets = []string(presetFlags)
 
 	return f, flag.Args()
@@ -185,6 +195,7 @@ func main() {
 
 	// Merge preset paths with command-line paths
 	allowedPaths := flags.allowPaths
+	deniedPaths := flags.denyPaths
 	allowKeychain := flags.allowKeychain
 	allowGit := flags.allowGit
 
@@ -208,6 +219,11 @@ func main() {
 			allowedPaths = append(allowedPaths, path.Path)
 		}
 
+		// Add preset deny paths
+		for _, path := range processedPreset.Deny {
+			deniedPaths = append(deniedPaths, path.Path)
+		}
+
 		// Preset's allowKeychain is ORed with command-line flag
 		allowKeychain = allowKeychain || processedPreset.AllowKeychain
 
@@ -221,8 +237,15 @@ func main() {
 		AllowKeychain: allowKeychain,
 		AllowGit:      allowGit,
 		AllowedPaths:  allowedPaths,
+		DeniedPaths:   deniedPaths,
 		Command:       args[0],
 		Args:          args[1:],
+	}
+
+	// Validate flag combinations
+	if sandboxConfig.AllowAll && len(sandboxConfig.DeniedPaths) > 0 {
+		fmt.Fprintf(os.Stderr, "cage: cannot use -allow-all with -deny\n")
+		os.Exit(1)
 	}
 
 	// Handle dry-run flag

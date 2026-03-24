@@ -94,7 +94,7 @@ func TestConfigGetPreset(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
 			"test": {
-				Allow: []AllowPath{{Path: "/tmp"}, {Path: "/var"}},
+				Allow: []PathSpec{{Path: "/tmp"}, {Path: "/var"}},
 			},
 		},
 	}
@@ -135,9 +135,9 @@ func TestConfigGetPreset(t *testing.T) {
 func TestConfigListPresets(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
-			"npm":   {Allow: []AllowPath{{Path: "~/.npm"}}},
-			"cargo": {Allow: []AllowPath{{Path: "~/.cargo"}}},
-			"pip":   {Allow: []AllowPath{{Path: "~/.pip"}}},
+			"npm":   {Allow: []PathSpec{{Path: "~/.npm"}}},
+			"cargo": {Allow: []PathSpec{{Path: "~/.cargo"}}},
+			"pip":   {Allow: []PathSpec{{Path: "~/.pip"}}},
 		},
 	}
 
@@ -228,7 +228,7 @@ func TestProcessPreset(t *testing.T) {
 		{
 			name: "preset with environment variables",
 			preset: Preset{
-				Allow: []AllowPath{
+				Allow: []PathSpec{
 					{Path: "$HOME/.npm"},
 					{Path: "${TEST_DIR}/data"},
 					{Path: "/tmp"},
@@ -245,7 +245,7 @@ func TestProcessPreset(t *testing.T) {
 		{
 			name: "preset with command substitution not expanded",
 			preset: Preset{
-				Allow: []AllowPath{
+				Allow: []PathSpec{
 					{Path: "$(echo /dynamic/path)"},
 				},
 			},
@@ -351,7 +351,7 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 	// This test will only check the AllowGit flag is preserved
 	// We can't easily test the git directory addition without a real git repo
 	preset := Preset{
-		Allow: []AllowPath{
+		Allow: []PathSpec{
 			{Path: "$HOME/.npm"},
 			{Path: "/tmp"},
 		},
@@ -404,9 +404,9 @@ func TestProcessPresetWithAllowGit(t *testing.T) {
 func TestGetAutoPresets(t *testing.T) {
 	config := &Config{
 		Presets: map[string]Preset{
-			"claude-code": {Allow: []AllowPath{{Path: "/tmp"}}},
-			"npm":         {Allow: []AllowPath{{Path: "~/.npm"}}},
-			"python":      {Allow: []AllowPath{{Path: "~/.python"}}},
+			"claude-code": {Allow: []PathSpec{{Path: "/tmp"}}},
+			"npm":         {Allow: []PathSpec{{Path: "~/.npm"}}},
+			"python":      {Allow: []PathSpec{{Path: "~/.python"}}},
 		},
 		AutoPresets: []AutoPresetRule{
 			{
@@ -595,18 +595,18 @@ auto-presets:
 	}
 }
 
-func TestAllowPathUnmarshalYAML(t *testing.T) {
+func TestPathSpecUnmarshalYAML(t *testing.T) {
 	tests := []struct {
 		name     string
 		yaml     string
-		want     AllowPath
+		want     PathSpec
 		wantErr  bool
 		errMatch string
 	}{
 		{
 			name: "string format",
 			yaml: `"/tmp/test"`,
-			want: AllowPath{
+			want: PathSpec{
 				Path:         "/tmp/test",
 				EvalSymLinks: false,
 			},
@@ -616,7 +616,7 @@ func TestAllowPathUnmarshalYAML(t *testing.T) {
 			name: "object format with eval-symlinks false",
 			yaml: `path: "/tmp/test"
 eval-symlinks: false`,
-			want: AllowPath{
+			want: PathSpec{
 				Path:         "/tmp/test",
 				EvalSymLinks: false,
 			},
@@ -626,7 +626,7 @@ eval-symlinks: false`,
 			name: "object format with eval-symlinks true",
 			yaml: `path: "/tmp/test"
 eval-symlinks: true`,
-			want: AllowPath{
+			want: PathSpec{
 				Path:         "/tmp/test",
 				EvalSymLinks: true,
 			},
@@ -635,7 +635,7 @@ eval-symlinks: true`,
 		{
 			name: "object format without eval-symlinks",
 			yaml: `path: "/tmp/test"`,
-			want: AllowPath{
+			want: PathSpec{
 				Path:         "/tmp/test",
 				EvalSymLinks: false,
 			},
@@ -663,7 +663,7 @@ eval-symlinks: true`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var ap AllowPath
+			var ap PathSpec
 			err := yaml.Unmarshal([]byte(tt.yaml), &ap)
 
 			if (err != nil) != tt.wantErr {
@@ -698,7 +698,7 @@ eval-symlinks: true`,
 	}
 }
 
-func TestLoadConfigWithAllowPathFormats(t *testing.T) {
+func TestLoadConfigWithPathSpecFormats(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "test.yaml")
 	content := `presets:
@@ -768,7 +768,7 @@ func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 		{
 			name: "symlink evaluation disabled",
 			preset: Preset{
-				Allow: []AllowPath{
+				Allow: []PathSpec{
 					{Path: symlinkPath, EvalSymLinks: false},
 				},
 			},
@@ -777,7 +777,7 @@ func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 		{
 			name: "symlink evaluation enabled",
 			preset: Preset{
-				Allow: []AllowPath{
+				Allow: []PathSpec{
 					{Path: symlinkPath, EvalSymLinks: true},
 				},
 			},
@@ -786,7 +786,7 @@ func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 		{
 			name: "mix of symlink and regular paths",
 			preset: Preset{
-				Allow: []AllowPath{
+				Allow: []PathSpec{
 					{Path: "/tmp", EvalSymLinks: false},
 					{Path: symlinkPath, EvalSymLinks: true},
 					{Path: "/var", EvalSymLinks: false},
@@ -797,7 +797,7 @@ func TestProcessPresetWithSymlinkEvaluation(t *testing.T) {
 		{
 			name: "non-existent symlink falls back to original path",
 			preset: Preset{
-				Allow: []AllowPath{
+				Allow: []PathSpec{
 					{Path: "/non/existent/symlink", EvalSymLinks: true},
 				},
 			},

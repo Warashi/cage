@@ -1,6 +1,6 @@
 # Cage
 
-A cross-platform security sandbox CLI tool that executes commands with restricted file system write access while maintaining full read permissions.
+A cross-platform security sandbox CLI tool that executes commands with restricted file system access.
 
 ## Overview
 
@@ -12,7 +12,8 @@ Cage provides a unified way to run potentially untrusted commands or scripts wit
 
 ## Features
 
-- **Write-only restriction**: Commands can read any file but cannot write unless explicitly allowed
+- **Write restriction**: Commands cannot write unless explicitly allowed via `-allow` flags
+- **Read restriction**: Deny read access to sensitive paths via `-deny` flag (on Linux requires bubblewrap)
 - **Cross-platform**: Works on Linux (kernel 5.13+) and macOS
 - **Flexible permissions**: Grant write access to specific paths via `-allow` flags
 - **Debug mode**: Disable all restrictions with `-allow-all`
@@ -54,6 +55,7 @@ cage [flags] <command> [args...]
 ### Flags
 
 - `-allow <path>`: Grant write access to a specific path (can be used multiple times)
+- `-deny <path>`: Deny read access to a specific path (can be used multiple times)
 - `-allow-keychain`: Allow write access to the macOS keychain (macOS only)
 - `-allow-git`: Allow access to git common directory (enables git operations in worktrees)
 - `-allow-all`: Disable all restrictions (useful for debugging)
@@ -88,6 +90,11 @@ cage -allow ./output -- ./process_data.sh /sensitive/data
 #### Allow keychain access (macOS)
 ```bash
 cage -allow-keychain -- security add-generic-password -s "MyService" -a "username" -w
+```
+
+#### Deny read access to sensitive files
+```bash
+cage -allow . -deny ~/.ssh -deny ~/.env -- some-command
 ```
 
 #### Debug mode (no restrictions)
@@ -172,12 +179,13 @@ presets:
 
 Presets support the following options:
 - `allow`: List of paths to grant write access (can be strings or objects with `eval-symlinks` option)
+- `deny`: List of paths to deny read access (can be strings or objects with `eval-symlinks` option)
 - `allow-git`: Enable access to git common directory (boolean)
 - `allow-keychain`: Enable macOS keychain access (boolean)
 
 #### Symlink Evaluation in Presets
 
-The `allow` field in presets supports both simple string paths and objects with an `eval-symlinks` option. When `eval-symlinks` is set to `true`, the symlink will be resolved to its target path before granting access.
+The `allow` and `deny` fields in presets support both simple string paths and objects with an `eval-symlinks` option. When `eval-symlinks` is set to `true`, the symlink will be resolved to its target path before applying the rule.
 
 ```yaml
 presets:
@@ -264,6 +272,7 @@ Auto-preset rules support:
 - Requires kernel 5.13 or later
 - Grants read/execute access to entire filesystem
 - Write access only to /dev/null and explicitly allowed paths
+- When `-deny` is specified, falls back to bubblewrap (see Limitations)
 
 ### macOS
 - Uses `sandbox-exec` with custom sandbox profiles
@@ -278,13 +287,14 @@ Auto-preset rules support:
 
 Cage enforces the following security policy by default:
 
-| Operation | Default Policy | With `-allow` |
-|-----------|---------------|----------------|
-| File Read | ✅ Allowed | ✅ Allowed |
-| File Write | ❌ Denied | ✅ Allowed for specified paths |
-| File Execute | ✅ Allowed | ✅ Allowed |
-| Network Access | ✅ Allowed | ✅ Allowed |
-| Process Creation | ✅ Allowed | ✅ Allowed |
+| Operation | Default Policy | With `-allow` | With `-deny` |
+|-----------|---------------|----------------|--------------------------|
+| File Read | ✅ Allowed | ✅ Allowed | ❌ Denied for specified paths |
+| File Write | ❌ Denied | ✅ Allowed for specified paths | ❌ Denied |
+| File Delete | ❌ Denied | ✅ Allowed for specified paths | ❌ Denied |
+| File Execute | ✅ Allowed | ✅ Allowed | ✅ Allowed |
+| Network Access | ✅ Allowed | ✅ Allowed | ✅ Allowed |
+| Process Creation | ✅ Allowed | ✅ Allowed | ✅ Allowed |
 
 ## Environment Variables
 
@@ -392,7 +402,7 @@ cage \
 - Sandboxing is only implemented for Linux and macOS
 - Linux requires kernel 5.13 or later for Landlock support
 - Network and process execution are not restricted
-- Cannot restrict reads (by design - focuses on write-only restrictions)
+- `-deny` flag on Linux requires [bubblewrap](https://github.com/containers/bubblewrap) to be installed
 
 ## Contributing
 

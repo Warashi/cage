@@ -27,6 +27,12 @@ func runInSandbox(config *SandboxConfig) error {
 		return syscall.Exec(path, argv, os.Environ())
 	}
 
+	// Fall back to bubblewrap when DeniedPaths are specified,
+	// since Landlock LSM uses an allowlist model and cannot deny reads.
+	if len(config.DeniedPaths) > 0 {
+		return runWithBubblewrap(config)
+	}
+
 	// Build FSRules
 	var rules []landlock.Rule
 
@@ -81,4 +87,59 @@ func runInSandbox(config *SandboxConfig) error {
 	err = syscall.Exec(path, argv, os.Environ())
 	// If we reach here, exec failed
 	return fmt.Errorf("syscall.Exec failed: %w", err)
+}
+
+// runWithBubblewrap implements sandbox execution for Linux using bubblewrap (bwrap)
+// This is used as a fallback when DeniedPaths are specified, since Landlock does not support deny rules.
+func runWithBubblewrap(config *SandboxConfig) error {
+	bwrapPath, err := exec.LookPath("bwrap")
+	if err != nil {
+		return fmt.Errorf("-deny flag on Linux requires bubblewrap (bwrap): %w", err)
+	}
+
+	args := []string{"bwrap"}
+
+	// Bind the entire root filesystem as read-only (equivalent to Landlock's RODirs("/"))
+	args = append(args, "--ro-bind", "/", "/")
+
+	// Allow write access to /dev/null by default (equivalent to Landlock's RWFiles("/dev/null"))
+	args = append(args, "--dev-bind", "/dev/null", "/dev/null")
+
+	// Grant write access to specified paths
+	for _, path := range config.AllowedPaths {
+		// Check if the path exists before adding the rule
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		// Use --dev-bind for /dev and paths under /dev/ (equivalent to Landlock's WithIoctlDev)
+		if path == "/dev" || strings.HasPrefix(path, "/dev/") {
+			args = append(args, "--dev-bind", path, path)
+			continue
+		}
+		// Use --bind for other paths (works for both files and directories)
+		args = append(args, "--bind", path, path)
+	}
+
+	// Deny read access to specified paths (placed last to take priority over allow rules)
+	for _, path := range config.DeniedPaths {
+		// Check if the path exists before adding the rule
+		info, err := os.Stat(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cage: warning: deny path does not exist, skipping: %s\n", path)
+			continue
+		}
+		if info.IsDir() {
+			// Directory: mount tmpfs to hide contents
+			args = append(args, "--tmpfs", path)
+		} else {
+			// File: bind /dev/null over the file to make it appear empty
+			args = append(args, "--bind", "/dev/null", path)
+		}
+	}
+
+	args = append(args, "--")
+	args = append(args, config.Command)
+	args = append(args, config.Args...)
+
+	return syscall.Exec(bwrapPath, args, os.Environ())
 }

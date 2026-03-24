@@ -195,10 +195,64 @@ test_edge_cases() {
         "$CAGE_BIN" cat /etc/passwd
 }
 
+# Test 8: Single directory deny
+test_single_deny() {
+    echo -e "\nTesting single --deny flag..."
+
+    mkdir -p "$TEST_DIR/secret"
+    echo "secret content" > "$TEST_DIR/secret/secret.txt"
+    echo "secret file" > "$TEST_DIR/secret_file.txt"
+
+    run_test "Read denied directory (should fail)" "failure" \
+        "$CAGE_BIN" -deny "$TEST_DIR/secret" cat "$TEST_DIR/secret/secret.txt"
+
+    run_test "Read denied file (should fail)" "failure" \
+        "$CAGE_BIN" -deny "$TEST_DIR/secret_file.txt" cat "$TEST_DIR/secret_file.txt"
+
+    run_test "Read non-denied file" "success" \
+        "$CAGE_BIN" -deny "$TEST_DIR/secret" cat "$TEST_DIR/readable/test.txt"
+}
+
+# Test 9: Multiple directory deny
+test_multiple_deny() {
+    echo -e "\nTesting multiple --deny flags..."
+
+    mkdir -p "$TEST_DIR/secret2"
+    echo "secret2 content" > "$TEST_DIR/secret2/secret2.txt"
+
+    run_test "Read first denied directory (should fail)" "failure" \
+        "$CAGE_BIN" -deny "$TEST_DIR/secret" -deny "$TEST_DIR/secret2" cat "$TEST_DIR/secret/secret.txt"
+
+    run_test "Read second denied directory (should fail)" "failure" \
+        "$CAGE_BIN" -deny "$TEST_DIR/secret" -deny "$TEST_DIR/secret2" cat "$TEST_DIR/secret2/secret2.txt"
+
+    run_test "Read non-denied file with multiple --deny" "success" \
+        "$CAGE_BIN" -deny "$TEST_DIR/secret" -deny "$TEST_DIR/secret2" cat "$TEST_DIR/readable/test.txt"
+}
+
+# Test 10: Deny with allow flag
+test_deny_with_allow() {
+    echo -e "\nTesting -deny flag with -allow flag..."
+
+    run_test "Read denied directory with --allow (should fail)" "failure" \
+        "$CAGE_BIN" -allow "$TEST_DIR" -deny "$TEST_DIR/secret" cat "$TEST_DIR/secret/secret.txt"
+
+    run_test "Read non-denied file with --allow and --deny" "success" \
+        "$CAGE_BIN" -allow "$TEST_DIR" -deny "$TEST_DIR/secret" cat "$TEST_DIR/readable/test.txt"
+}
+
+# Test 11: Deny with allow-all flag
+test_deny_with_allow_all() {
+    echo -e "\nTesting -deny flag with --allow-all flag..."
+
+    run_test "Use --allow-all with --deny (should fail)" "failure" \
+        "$CAGE_BIN" -allow-all -deny "$TEST_DIR/secret" cat "$TEST_DIR/secret/secret.txt"
+}
+
 # Platform-specific tests
 test_platform_specific() {
     echo -e "\nTesting platform-specific features..."
-    
+
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         echo "Running Linux-specific tests..."
         # Linux specific tests here
@@ -213,9 +267,9 @@ main() {
     echo "=== Cage E2E Test Suite ==="
     echo "Platform: $OSTYPE"
     echo
-    
+
     setup
-    
+
     test_basic_execution
     test_write_restrictions
     test_single_allow
@@ -223,6 +277,10 @@ main() {
     test_allow_all
     test_complex_commands
     test_edge_cases
+    test_single_deny
+    test_multiple_deny
+    test_deny_with_allow
+    test_deny_with_allow_all
     test_platform_specific
     
     echo

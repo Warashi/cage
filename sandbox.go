@@ -24,6 +24,10 @@ type SandboxConfig struct {
 	// AllowedPaths are paths where write access is granted
 	AllowedPaths []string
 
+	// DeniedPaths are paths where read access is denied
+	// On macOS, uses sandbox-exec. On Linux, uses bubblewrap (bwrap) as fallback.
+	DeniedPaths []string
+
 	// Command is the command to execute
 	Command string
 
@@ -53,6 +57,16 @@ func modifySandboxConfig(config *SandboxConfig) {
 	}
 
 	config.AllowedPaths = slices.Sorted(maps.Keys(pathSet))
+
+	deniedSet := make(map[string]struct{})
+	for _, path := range config.DeniedPaths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			absPath = path
+		}
+		deniedSet[absPath] = struct{}{}
+	}
+	config.DeniedPaths = slices.Sorted(maps.Keys(deniedSet))
 }
 
 // RunInSandbox executes the given command with sandbox restrictions
