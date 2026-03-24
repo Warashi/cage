@@ -18,12 +18,13 @@ type Config struct {
 }
 
 type Preset struct {
-	Allow         []AllowPath `yaml:"allow"`
-	AllowKeychain bool        `yaml:"allow-keychain"`
-	AllowGit      bool        `yaml:"allow-git"`
+	Allow         []PathSpec `yaml:"allow"`
+	Deny          []PathSpec `yaml:"deny"`
+	AllowKeychain bool       `yaml:"allow-keychain"`
+	AllowGit      bool       `yaml:"allow-git"`
 }
 
-type AllowPath struct {
+type PathSpec struct {
 	Path         string `yaml:"path"`
 	EvalSymLinks bool   `yaml:"eval-symlinks,omitempty"`
 }
@@ -34,28 +35,28 @@ type AutoPresetRule struct {
 	Presets        []string `yaml:"presets"`
 }
 
-func (p *AllowPath) UnmarshalYAML(b []byte) error {
+func (p *PathSpec) UnmarshalYAML(b []byte) error {
 	var a any
 	if err := yaml.Unmarshal(b, &a); err != nil {
-		return fmt.Errorf("unmarshal AllowPath: %w", err)
+		return fmt.Errorf("unmarshal PathSpec: %w", err)
 	}
 	switch v := a.(type) {
 	case string:
-		*p = AllowPath{
+		*p = PathSpec{
 			Path:         v,
 			EvalSymLinks: false,
 		}
 		return nil
 	case map[string]any:
-		type alias AllowPath
+		type alias PathSpec
 		var ap alias
 		if err := yaml.Unmarshal(b, &ap); err != nil {
-			return fmt.Errorf("unmarshal AllowPath map: %w", err)
+			return fmt.Errorf("unmarshal PathSpec map: %w", err)
 		}
-		*p = (AllowPath)(ap)
+		*p = (PathSpec)(ap)
 		return nil
 	default:
-		return fmt.Errorf("unmarshal AllowPath: unsupported type %T", a)
+		return fmt.Errorf("unmarshal PathSpec: unsupported type %T", a)
 	}
 }
 
@@ -182,27 +183,32 @@ func getGitCommonDir() (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// resolvePath expands environment variables and optionally resolves symlinks.
+func resolvePath(p PathSpec) string {
+	expanded := os.ExpandEnv(p.Path)
+	if p.EvalSymLinks {
+		if resolved, err := filepath.EvalSymlinks(expanded); err == nil {
+			expanded = resolved
+		}
+	}
+	return expanded
+}
+
 // ProcessPreset expands all dynamic values in a preset
 func (p *Preset) ProcessPreset() (*Preset, error) {
 	processed := &Preset{
 		AllowKeychain: p.AllowKeychain,
 		AllowGit:      p.AllowGit,
-		Allow:         make([]AllowPath, 0, len(p.Allow)),
+		Allow:         make([]PathSpec, 0, len(p.Allow)),
+		Deny:          make([]PathSpec, 0, len(p.Deny)),
 	}
 
-	// Expand environment variables in paths
 	for _, path := range p.Allow {
-		expanded := os.ExpandEnv(path.Path)
-		if path.EvalSymLinks {
-			// Resolve symlinks if EvalSymLinks is true
-			resolvedPath, err := filepath.EvalSymlinks(expanded)
-			if err != nil {
-				resolvedPath = expanded // Fallback to original path if eval fails
-			}
-			expanded = resolvedPath
-		}
+		processed.Allow = append(processed.Allow, PathSpec{Path: resolvePath(path)})
+	}
 
-		processed.Allow = append(processed.Allow, AllowPath{Path: expanded})
+	for _, path := range p.Deny {
+		processed.Deny = append(processed.Deny, PathSpec{Path: resolvePath(path)})
 	}
 
 	return processed, nil

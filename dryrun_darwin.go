@@ -41,6 +41,17 @@ func showDryRun(config *SandboxConfig) error {
 			}
 			fmt.Printf("  * %s (%s)\n", absPath, source)
 		}
+
+		if len(config.DeniedPaths) > 0 {
+			fmt.Println("- Deny read access to:")
+			for _, path := range config.DeniedPaths {
+				absPath, err := filepath.Abs(path)
+				if err != nil {
+					absPath = path
+				}
+				fmt.Printf("  * %s\n", absPath)
+			}
+		}
 	}
 
 	fmt.Println()
