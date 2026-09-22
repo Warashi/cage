@@ -22,7 +22,6 @@ archives:
 
 homebrew_casks:
   - url:
-      verified: "github.com/Warashi/cage/"
       using: ":homebrew_curl"
 
     commit_author:
